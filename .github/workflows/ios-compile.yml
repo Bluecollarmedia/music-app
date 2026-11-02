@@ -1,0 +1,65 @@
+# Compiles the iOS app (including the Swift audio module) on a GitHub-hosted Mac.
+# No signing and no Apple account needed: this only checks that everything builds.
+# Use EAS (see README) to build signed apps for your iPhone.
+name: iOS compile check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-compile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Select newest Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Generate native iOS project
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        run: cd ios && pod install
+
+      - name: Build for iOS Simulator
+        run: |
+          set +e
+          xcodebuild \
+            -workspace ios/SONDER.xcworkspace \
+            -scheme SONDER \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build > build.log 2>&1
+          status=$?
+          grep -E "error:|BUILD (SUCCEEDED|FAILED)" build.log | head -100
+          exit $status
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: build.log

@@ -1,0 +1,542 @@
+import { Link, router, Stack } from 'expo-router';
+import { SymbolView, type SFSymbol } from 'expo-symbols';
+import { useDeferredValue, useMemo, useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useShallow } from 'zustand/react/shallow';
+
+import { AlbumTile } from '@/components/AlbumTile';
+import { Artwork } from '@/components/Artwork';
+import { EmptyState } from '@/components/EmptyState';
+import { ImportBanner } from '@/components/ImportBanner';
+import { LibraryToolbar, runImportFromFiles } from '@/components/LibraryToolbar';
+import { PlaylistArtwork } from '@/components/PlaylistArtwork';
+import { SectionHeader } from '@/components/SectionHeader';
+import { TrackRow } from '@/components/TrackRow';
+import { useAlbumArtwork } from '@/hooks/useArtwork';
+import { useHrefs, useTab } from '@/hooks/useTab';
+import { pluralize, sortKey } from '@/lib/format';
+import { albumArtworkPath, useLibrary } from '@/stores/library';
+import { player } from '@/stores/player';
+import { useSettings, type SongSort } from '@/stores/settings';
+import { colors, layout, radius, space, type } from '@/theme';
+
+// MARK: Library home
+
+type Category = { title: string; symbol: SFSymbol; route: string; count: number };
+
+export function LibraryScreen() {
+  const counts = useLibrary(
+    useShallow((s) => ({
+      playlists: s.playlistOrder.length,
+      albums: s.albumOrder.length,
+      artists: s.artistOrder.length,
+      songs: s.songOrder.length,
+      favorites: s.songOrder.filter((id) => s.tracks[id]?.favorite).length,
+    })),
+  );
+  const ready = useLibrary((s) => s.ready);
+  const recent = useLibrary(
+    useShallow((s) =>
+      Object.values(s.albums)
+        .sort((a, b) => b.dateAdded - a.dateAdded)
+        .slice(0, 6)
+        .map((a) => a.id),
+    ),
+  );
+  const { width } = useWindowDimensions();
+  const tileWidth = (width - space.screen * 2 - layout.gridGap) / 2;
+
+  const categories: Category[] = [
+    { title: 'Playlists', symbol: 'music.note.list', route: '/library/playlists', count: counts.playlists },
+    { title: 'Albums', symbol: 'square.stack', route: '/library/albums', count: counts.albums },
+    { title: 'Artists', symbol: 'music.mic', route: '/library/artists', count: counts.artists },
+    { title: 'Songs', symbol: 'music.note', route: '/library/songs', count: counts.songs },
+    { title: 'Favorites', symbol: 'heart', route: '/library/favorites', count: counts.favorites },
+  ];
+
+  return (
+    <>
+      <Stack.Title large>Library</Stack.Title>
+      <LibraryToolbar />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        <ImportBanner />
+        {ready && counts.songs === 0 ? (
+          <EmptyState
+            symbol="square.stack"
+            title="No music yet"
+            message="Tap + to import songs from Files, or copy them into “On My iPhone › SONDER” and scan."
+            action={{ label: 'Import Music', onPress: runImportFromFiles }}
+          />
+        ) : (
+          <>
+            <View style={styles.categoryList}>
+              {categories.map((c, i) => (
+                <Link key={c.title} href={c.route as never} asChild>
+                  <Pressable
+                    style={({ pressed }) => [styles.categoryRow, pressed && { backgroundColor: colors.fill }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${c.title}, ${c.count}`}
+                  >
+                    <SymbolView name={c.symbol} size={20} tintColor={colors.accent} style={styles.categoryIcon} />
+                    <Text style={styles.categoryTitle}>{c.title}</Text>
+                    <Text style={styles.categoryCount}>{c.count.toLocaleString()}</Text>
+                    <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
+                    {i < categories.length - 1 ? <View style={styles.separator} /> : null}
+                  </Pressable>
+                </Link>
+              ))}
+            </View>
+            {recent.length > 0 ? (
+              <>
+                <SectionHeader title="Recently Added" href="/library/recent" />
+                <View style={styles.grid}>
+                  {recent.map((id) => (
+                    <AlbumTile key={id} albumId={id} width={tileWidth} />
+                  ))}
+                </View>
+              </>
+            ) : null}
+          </>
+        )}
+      </ScrollView>
+    </>
+  );
+}
+
+// MARK: Albums
+
+export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
+  const layoutPref = useSettings((s) => s.albumsLayout);
+  const update = useSettings((s) => s.update);
+  const albumOrder = useLibrary((s) => s.albumOrder);
+  const albums = useLibrary((s) => s.albums);
+  const { width } = useWindowDimensions();
+  const tileWidth = (width - space.screen * 2 - layout.gridGap) / 2;
+
+  const ids = useMemo(
+    () =>
+      mode === 'recent'
+        ? [...albumOrder].sort((a, b) => (albums[b]?.dateAdded ?? 0) - (albums[a]?.dateAdded ?? 0))
+        : albumOrder,
+    [mode, albumOrder, albums],
+  );
+
+  const grid = layoutPref === 'grid';
+
+  return (
+    <>
+      <Stack.Title>{mode === 'recent' ? 'Recently Added' : 'Albums'}</Stack.Title>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={grid ? 'list.bullet' : 'square.grid.2x2'}
+          accessibilityLabel={grid ? 'Show as list' : 'Show as grid'}
+          onPress={() => update({ albumsLayout: grid ? 'list' : 'grid' })}
+        />
+      </Stack.Toolbar>
+      {grid ? (
+        <FlatList
+          key="grid"
+          data={ids}
+          numColumns={2}
+          keyExtractor={(id) => id}
+          contentInsetAdjustmentBehavior="automatic"
+          columnWrapperStyle={{ gap: layout.gridGap, paddingHorizontal: space.screen }}
+          contentContainerStyle={{ gap: space.xl, paddingTop: space.md, paddingBottom: 140 }}
+          renderItem={({ item }) => <AlbumTile albumId={item} width={tileWidth} />}
+          initialNumToRender={10}
+          windowSize={7}
+          ListEmptyComponent={<EmptyState symbol="square.stack" title="No albums" message="Imported music appears here." />}
+        />
+      ) : (
+        <FlatList
+          key="list"
+          data={ids}
+          keyExtractor={(id) => id}
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={{ paddingBottom: 140 }}
+          renderItem={({ item }) => <AlbumListRow albumId={item} />}
+          getItemLayout={(_, index) => ({ length: 76, offset: 76 * index, index })}
+          ListEmptyComponent={<EmptyState symbol="square.stack" title="No albums" message="Imported music appears here." />}
+        />
+      )}
+    </>
+  );
+}
+
+function AlbumListRow({ albumId }: { albumId: string }) {
+  const album = useLibrary((s) => s.albums[albumId]);
+  const artwork = useAlbumArtwork(albumId);
+  const hrefs = useHrefs();
+  if (!album) return null;
+  return (
+    <Link href={hrefs.album(albumId)} asChild>
+      <Pressable
+        style={({ pressed }) => [styles.listRow, pressed && { backgroundColor: colors.fill }]}
+        accessibilityLabel={`${album.title}, ${album.artist}`}
+      >
+        <Artwork path={artwork} size={56} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {album.title}
+          </Text>
+          <Text style={styles.rowSub} numberOfLines={1}>
+            {album.artist}
+            {album.year ? ` · ${album.year}` : ''}
+          </Text>
+        </View>
+      </Pressable>
+    </Link>
+  );
+}
+
+// MARK: Artists
+
+export function ArtistsScreen() {
+  const artistOrder = useLibrary((s) => s.artistOrder);
+  return (
+    <>
+      <Stack.Title>Artists</Stack.Title>
+      <FlatList
+        data={artistOrder}
+        keyExtractor={(id) => id}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: 140 }}
+        renderItem={({ item }) => <ArtistRow artistId={item} />}
+        getItemLayout={(_, index) => ({ length: 68, offset: 68 * index, index })}
+        ListEmptyComponent={<EmptyState symbol="music.mic" title="No artists" message="Imported music appears here." />}
+      />
+    </>
+  );
+}
+
+function ArtistRow({ artistId }: { artistId: string }) {
+  const artist = useLibrary((s) => s.artists[artistId]);
+  const cover = useLibrary((s) => {
+    const a = s.artists[artistId];
+    return a ? albumArtworkPath(s.albums[a.albumIds[0]]) : null;
+  });
+  const hrefs = useHrefs();
+  if (!artist) return null;
+  return (
+    <Link href={hrefs.artist(artistId)} asChild>
+      <Pressable
+        style={({ pressed }) => [styles.listRow, { height: 68 }, pressed && { backgroundColor: colors.fill }]}
+        accessibilityLabel={artist.name}
+      >
+        <Artwork path={cover} size={48} radius={24} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {artist.name}
+          </Text>
+          <Text style={styles.rowSub}>
+            {artist.albumIds.length > 0 ? `${pluralize(artist.albumIds.length, 'album')} · ` : ''}
+            {pluralize(artist.trackIds.length, 'song')}
+          </Text>
+        </View>
+        <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
+      </Pressable>
+    </Link>
+  );
+}
+
+// MARK: Songs
+
+const SORT_LABELS: Record<SongSort, string> = {
+  title: 'Title',
+  artist: 'Artist',
+  album: 'Album',
+  dateAdded: 'Recently Added',
+  playCount: 'Most Played',
+};
+
+export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean }) {
+  const songOrder = useLibrary((s) => s.songOrder);
+  const tracks = useLibrary((s) => s.tracks);
+  const sort = useSettings((s) => s.songSort);
+  const update = useSettings((s) => s.update);
+  const [query, setQuery] = useState('');
+  const deferred = useDeferredValue(query);
+
+  const ids = useMemo(() => {
+    let list = favoritesOnly ? songOrder.filter((id) => tracks[id]?.favorite) : songOrder;
+    const q = deferred.trim().toLocaleLowerCase();
+    if (q) {
+      list = list.filter((id) => {
+        const t = tracks[id];
+        return (
+          t.title.toLocaleLowerCase().includes(q) ||
+          t.artist.toLocaleLowerCase().includes(q) ||
+          t.album.toLocaleLowerCase().includes(q)
+        );
+      });
+    }
+    if (sort === 'title') return list;
+    const sorted = [...list];
+    const by = {
+      artist: (a: string, b: string) => sortKey(tracks[a].artist).localeCompare(sortKey(tracks[b].artist)),
+      album: (a: string, b: string) => sortKey(tracks[a].album).localeCompare(sortKey(tracks[b].album)),
+      dateAdded: (a: string, b: string) => tracks[b].dateAdded - tracks[a].dateAdded,
+      playCount: (a: string, b: string) => tracks[b].playCount - tracks[a].playCount,
+    }[sort];
+    return sorted.sort(by);
+  }, [favoritesOnly, songOrder, tracks, sort, deferred]);
+
+  return (
+    <>
+      <Stack.Title>{favoritesOnly ? 'Favorite Songs' : 'Songs'}</Stack.Title>
+      <Stack.SearchBar placeholder="Find in Songs" onChangeText={(e) => setQuery(e.nativeEvent.text)} hideWhenScrolling />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu icon="arrow.up.arrow.down" accessibilityLabel="Sort">
+          {(Object.keys(SORT_LABELS) as SongSort[]).map((key) => (
+            <Stack.Toolbar.MenuAction key={key} isOn={sort === key} onPress={() => update({ songSort: key })}>
+              {SORT_LABELS[key]}
+            </Stack.Toolbar.MenuAction>
+          ))}
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
+      <FlatList
+        data={ids}
+        keyExtractor={(id) => id}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{ paddingBottom: 140 }}
+        ListHeaderComponent={
+          ids.length > 0 ? (
+            <PlayShuffleBar
+              onPlay={() => player.playTracks(ids, 0, { shuffle: false })}
+              onShuffle={() => player.playTracks(ids, 0, { shuffle: true })}
+            />
+          ) : undefined
+        }
+        renderItem={({ item, index }) => (
+          <TrackRow trackId={item} onPress={() => player.playTracks(ids, index, { shuffle: false })} />
+        )}
+        getItemLayout={(_, index) => ({ length: layout.rowHeight, offset: layout.rowHeight * index, index })}
+        initialNumToRender={14}
+        windowSize={9}
+        ListEmptyComponent={
+          favoritesOnly ? (
+            <EmptyState symbol="heart" title="No favorites yet" message="Tap the heart in Now Playing to save songs here." />
+          ) : (
+            <EmptyState symbol="music.note" title="No songs" message="Imported music appears here." />
+          )
+        }
+      />
+    </>
+  );
+}
+
+// MARK: Playlists
+
+export function promptNewPlaylist(trackIds: string[] = [], onCreated?: (id: string) => void) {
+  Alert.prompt(
+    'New Playlist',
+    undefined,
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Create',
+        onPress: async (name?: string) => {
+          const id = await useLibrary.getState().createPlaylist(name ?? '', trackIds);
+          onCreated?.(id);
+        },
+      },
+    ],
+    'plain-text',
+    '',
+  );
+}
+
+export function PlaylistsScreen() {
+  const order = useLibrary((s) => s.playlistOrder);
+  const tab = useTab();
+  return (
+    <>
+      <Stack.Title>Playlists</Stack.Title>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="plus"
+          accessibilityLabel="New Playlist"
+          onPress={() => promptNewPlaylist([], (id) => router.push(`/${tab}/playlist/${id}`))}
+        />
+      </Stack.Toolbar>
+      <FlatList
+        data={order}
+        keyExtractor={(id) => id}
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ paddingBottom: 140 }}
+        renderItem={({ item }) => <PlaylistRow playlistId={item} />}
+        ListEmptyComponent={
+          <EmptyState
+            symbol="music.note.list"
+            title="No playlists"
+            message="Create a playlist, then add songs from any song’s menu."
+            action={{ label: 'New Playlist', onPress: () => promptNewPlaylist() }}
+          />
+        }
+      />
+    </>
+  );
+}
+
+function PlaylistRow({ playlistId }: { playlistId: string }) {
+  const playlist = useLibrary((s) => s.playlists[playlistId]);
+  const hrefs = useHrefs();
+  if (!playlist) return null;
+  return (
+    <Link href={hrefs.playlist(playlistId)} asChild>
+      <Pressable
+        style={({ pressed }) => [styles.listRow, pressed && { backgroundColor: colors.fill }]}
+        accessibilityLabel={playlist.name}
+      >
+        <PlaylistArtwork playlistId={playlistId} size={56} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle} numberOfLines={1}>
+            {playlist.name}
+          </Text>
+          <Text style={styles.rowSub}>{pluralize(playlist.trackIds.length, 'song')}</Text>
+        </View>
+        <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
+      </Pressable>
+    </Link>
+  );
+}
+
+// MARK: Favorites
+
+export function FavoritesScreen() {
+  const albumIds = useLibrary(
+    useShallow((s) => s.albumOrder.filter((id) => s.albums[id]?.favorite)),
+  );
+  const songIds = useLibrary(useShallow((s) => s.songOrder.filter((id) => s.tracks[id]?.favorite)));
+  return (
+    <>
+      <Stack.Title>Favorites</Stack.Title>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        {albumIds.length === 0 && songIds.length === 0 ? (
+          <EmptyState
+            symbol="heart"
+            title="No favorites yet"
+            message="Favorite songs from Now Playing or any song’s menu, and albums from their page."
+          />
+        ) : null}
+        {albumIds.length > 0 ? (
+          <>
+            <SectionHeader title="Albums" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
+              {albumIds.map((id) => (
+                <AlbumTile key={id} albumId={id} width={150} />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+        {songIds.length > 0 ? (
+          <>
+            <SectionHeader title="Songs" />
+            <PlayShuffleBar
+              onPlay={() => player.playTracks(songIds, 0, { shuffle: false })}
+              onShuffle={() => player.playTracks(songIds, 0, { shuffle: true })}
+            />
+            {songIds.map((id, i) => (
+              <TrackRow key={id} trackId={id} onPress={() => player.playTracks(songIds, i, { shuffle: false })} />
+            ))}
+          </>
+        ) : null}
+      </ScrollView>
+    </>
+  );
+}
+
+// MARK: Shared
+
+export function PlayShuffleBar({ onPlay, onShuffle }: { onPlay: () => void; onShuffle: () => void }) {
+  return (
+    <View style={styles.playBar}>
+      <Pressable
+        onPress={onPlay}
+        style={({ pressed }) => [styles.playButton, pressed && { opacity: 0.75 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Play"
+      >
+        <SymbolView name="play.fill" size={15} tintColor={colors.accent} />
+        <Text style={styles.playText}>Play</Text>
+      </Pressable>
+      <Pressable
+        onPress={onShuffle}
+        style={({ pressed }) => [styles.playButton, pressed && { opacity: 0.75 }]}
+        accessibilityRole="button"
+        accessibilityLabel="Shuffle"
+      >
+        <SymbolView name="shuffle" size={15} tintColor={colors.accent} />
+        <Text style={styles.playText}>Shuffle</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  categoryList: { marginTop: space.sm },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    paddingHorizontal: space.screen,
+    gap: space.md,
+  },
+  categoryIcon: { width: 28, height: 22 },
+  categoryTitle: { ...type.body, color: colors.label, flex: 1 },
+  categoryCount: { ...type.body, ...type.monoDigits, color: colors.secondaryLabel },
+  separator: {
+    position: 'absolute',
+    left: space.screen + 40,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.separator,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: layout.gridGap,
+    rowGap: space.xl,
+    paddingHorizontal: space.screen,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    height: 76,
+    paddingHorizontal: space.screen,
+  },
+  rowTitle: { ...type.body, color: colors.label },
+  rowSub: { ...type.subhead, color: colors.secondaryLabel, marginTop: 2 },
+  shelf: { paddingHorizontal: space.screen, gap: space.lg },
+  playBar: {
+    flexDirection: 'row',
+    gap: space.md,
+    paddingHorizontal: space.screen,
+    paddingTop: space.md,
+    paddingBottom: space.md,
+  },
+  playButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    height: 48,
+    borderRadius: radius.md,
+    borderCurve: 'continuous',
+    backgroundColor: colors.secondaryGroupedBackground,
+  },
+  playText: { ...type.headline, color: colors.accent },
+});
