@@ -46,6 +46,14 @@ Then pick one:
 
 EAS uses your Apple Developer account for signing; it will ask you to sign in to Apple the first time.
 
+### First build from GitHub
+
+`.github/workflows/eas-build.yml` runs the EAS build on GitHub and sends production builds to TestFlight.
+
+1. Add an `EXPO_TOKEN` secret to the repo (expo.dev > Account settings > Access tokens).
+2. Apple signing has to be set up once, interactively, because Apple asks you to sign in: from any computer with Node, run `npx eas-cli@latest build -p ios --profile production --auto-submit` in this folder and answer the prompts. EAS stores the certificate and profile.
+3. After that, run the workflow from the Actions tab (or label a PR `eas-build`) and it builds without prompts.
+
 ## Project layout
 
 ```
