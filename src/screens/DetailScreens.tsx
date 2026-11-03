@@ -1,6 +1,19 @@
 import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SymbolView } from 'expo-symbols';
+import { useMemo, useState } from 'react';
+import {
+  ActionSheetIOS,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 
 import { AlbumTile } from '@/components/AlbumTile';
@@ -16,7 +29,9 @@ import { useHrefs } from '@/hooks/useTab';
 import { addToQueue, confirmDeleteTracks, playNext, toggleFavoriteAlbum } from '@/library/actions';
 import { restoreOriginalArtwork } from '@/library/artwork';
 import { formatDuration, pluralize } from '@/lib/format';
-import { artistIdFor, useLibrary } from '@/stores/library';
+import { GlassIconButton } from '@/components/GlassIconButton';
+import { resolveUri } from '@/lib/paths';
+import { artistArtworkPath, artistIdFor, useLibrary } from '@/stores/library';
 import { player } from '@/stores/player';
 import { colors, layout, space, type } from '@/theme';
 import { PlayShuffleBar } from '@/screens/LibraryScreens';
@@ -155,68 +170,148 @@ export function AlbumScreen() {
 
 // MARK: Artist
 
+/** Releases with this many songs or more count as albums; shorter ones are singles and EPs. */
+const ALBUM_MIN_SONGS = 7;
+
 export function ArtistScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const artist = useLibrary((s) => s.artists[id]);
-  const { width } = useWindowDimensions();
-  const [showAll, setShowAll] = useState(false);
+  const photo = useLibrary((s) => artistArtworkPath(s.artists[id], s.albums, s.tracks));
+  const albumsById = useLibrary((s) => s.albums);
+  const tracksById = useLibrary((s) => s.tracks);
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
+  const sections = useMemo(() => {
+    if (!artist) return { albums: [], singles: [], songs: [] as string[] };
+    const releases = artist.albumIds.filter((a) => albumsById[a]);
+    return {
+      albums: releases.filter((a) => albumsById[a].trackIds.length >= ALBUM_MIN_SONGS),
+      singles: releases.filter((a) => albumsById[a].trackIds.length < ALBUM_MIN_SONGS),
+      // Songs that aren't on any release, so they'd otherwise be unreachable from this page.
+      songs: artist.trackIds.filter((t) => !tracksById[t]?.albumId),
+    };
+  }, [artist, albumsById, tracksById]);
 
   if (!artist) {
     return <EmptyState symbol="music.mic" title="Artist not found" message="They may have been removed from your library." />;
   }
-  const tile = (width - space.screen * 2 - layout.gridGap) / 2;
-  const songs = showAll ? artist.trackIds : artist.trackIds.slice(0, 8);
+
+  const heroHeight = Math.round(Math.max(300, height * 0.4));
+  const tile = 150;
+  const editPhoto = () => router.push({ pathname: '/artwork-editor', params: { kind: 'artist', id } });
+  const uri = resolveUri(photo);
+
+  const showMore = () => {
+    const actions: { title: string; run: () => void }[] = [
+      { title: 'Play Next', run: () => playNext(artist.trackIds) },
+      { title: 'Add to Queue', run: () => addToQueue(artist.trackIds) },
+      {
+        title: 'Add to Playlist…',
+        run: () => router.push({ pathname: '/add-to-playlist', params: { ids: artist.trackIds.join(',') } }),
+      },
+      { title: 'Change Photo…', run: editPhoto },
+      ...(artist.image
+        ? [{ title: 'Use Default Photo', run: () => void restoreOriginalArtwork({ kind: 'artist', id }) }]
+        : []),
+    ];
+    const options = [...actions.map((a) => a.title), 'Cancel'];
+    ActionSheetIOS.showActionSheetWithOptions(
+      { title: artist.name, options, cancelButtonIndex: options.length - 1, userInterfaceStyle: 'dark' },
+      (i) => actions[i]?.run(),
+    );
+  };
 
   return (
     <>
-      <Stack.Title large>{artist.name}</Stack.Title>
-      <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="More">
-          <Stack.Toolbar.MenuAction
-            icon="person.crop.circle"
-            onPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'artist', id } })}
+      <Stack.Title>{''}</Stack.Title>
+      <Stack.Screen options={{ headerLargeTitleEnabled: false, headerTransparent: true, headerShadowVisible: false }} />
+      <ScrollView contentInsetAdjustmentBehavior="never" contentContainerStyle={{ paddingBottom: 140 }}>
+        <View style={{ width, height: heroHeight, backgroundColor: '#161618' }}>
+          {uri ? (
+            <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, styles.heroEmpty]}>
+              <SymbolView name="music.mic" size={72} tintColor={colors.tertiaryLabel} />
+            </View>
+          )}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.55)', '#000000']}
+            locations={[0, 0.3, 0.75, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={[styles.heroEdit, { top: insets.top + 6 }]}>
+            <GlassIconButton symbol="camera" onPress={editPhoto} accessibilityLabel="Change artist photo" />
+          </View>
+          <Text style={styles.heroName} numberOfLines={2} accessibilityRole="header">
+            {artist.name}
+          </Text>
+        </View>
+
+        <View style={styles.artistActions}>
+          <Pressable
+            onPress={() => player.playTracks(artist.trackIds, 0, { shuffle: false })}
+            style={({ pressed }) => [styles.artistPlay, pressed && { opacity: 0.8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Play"
           >
-            Change Artist Picture…
-          </Stack.Toolbar.MenuAction>
-          {artist.image ? (
-            <Stack.Toolbar.MenuAction
-              icon="arrow.uturn.backward"
-              onPress={() => restoreOriginalArtwork({ kind: 'artist', id })}
-            >
-              Use Automatic Picture
-            </Stack.Toolbar.MenuAction>
-          ) : null}
-        </Stack.Toolbar.Menu>
-      </Stack.Toolbar>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
-        <BrandBackdrop />
-        <PlayShuffleBar
-          onPlay={() => player.playTracks(artist.trackIds, 0, { shuffle: false })}
-          onShuffle={() => player.playTracks(artist.trackIds, 0, { shuffle: true })}
-        />
-        {artist.albumIds.length > 0 ? (
+            <SymbolView name="play.fill" size={16} tintColor="#fff" />
+            <Text style={styles.artistPlayText}>Play</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => player.playTracks(artist.trackIds, 0, { shuffle: true })}
+            style={({ pressed }) => [styles.artistShuffle, pressed && { opacity: 0.8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Shuffle"
+          >
+            <SymbolView name="shuffle" size={16} tintColor={colors.label} />
+            <Text style={styles.artistShuffleText}>Shuffle</Text>
+          </Pressable>
+          <Pressable
+            onPress={showMore}
+            style={({ pressed }) => [styles.artistMore, pressed && { opacity: 0.8 }]}
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+          >
+            <SymbolView name="ellipsis" size={18} weight="bold" tintColor={colors.label} />
+          </Pressable>
+        </View>
+
+        {sections.albums.length > 0 ? (
           <>
             <SectionHeader title="Albums" />
-            <View style={styles.grid}>
-              {artist.albumIds.map((albumId) => (
-                <AlbumTile key={albumId} albumId={albumId} width={tile} caption="year" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfRow}>
+              {sections.albums.map((albumId) => (
+                <AlbumTile key={albumId} albumId={albumId} width={tile} caption="none" />
               ))}
-            </View>
+            </ScrollView>
           </>
         ) : null}
-        <SectionHeader title="Songs" />
-        {songs.map((trackId) => (
-          <TrackRow
-            key={trackId}
-            trackId={trackId}
-            subtitle="artistAlbum"
-            onPress={() => player.playTracks(artist.trackIds, artist.trackIds.indexOf(trackId), { shuffle: false })}
-          />
-        ))}
-        {!showAll && artist.trackIds.length > songs.length ? (
-          <Pressable onPress={() => setShowAll(true)} style={styles.showAll} accessibilityRole="button">
-            <Text style={styles.showAllText}>Show All {artist.trackIds.length} Songs</Text>
-          </Pressable>
+
+        {sections.singles.length > 0 ? (
+          <>
+            <SectionHeader title="Singles & EPs" />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfRow}>
+              {sections.singles.map((albumId) => (
+                <AlbumTile key={albumId} albumId={albumId} width={tile} caption="none" />
+              ))}
+            </ScrollView>
+          </>
+        ) : null}
+
+        {sections.songs.length > 0 ? (
+          <>
+            <SectionHeader title="All Songs" />
+            {sections.songs.map((trackId) => (
+              <TrackRow
+                key={trackId}
+                trackId={trackId}
+                prominent
+                onPress={() => player.playTracks(artist.trackIds, artist.trackIds.indexOf(trackId), { shuffle: false })}
+              />
+            ))}
+          </>
         ) : null}
       </ScrollView>
     </>
@@ -407,6 +502,50 @@ const styles = StyleSheet.create({
     rowGap: space.xl,
     paddingHorizontal: space.screen,
   },
+  heroEmpty: { alignItems: 'center', justifyContent: 'center' },
+  heroEdit: { position: 'absolute', right: space.screen },
+  heroName: {
+    position: 'absolute',
+    left: space.screen,
+    right: space.screen,
+    bottom: space.md,
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -1,
+    color: '#fff',
+  },
+  artistActions: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.screen, paddingVertical: space.md },
+  artistPlay: {
+    flex: 1.2,
+    height: 48,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    backgroundColor: colors.accent,
+  },
+  artistPlayText: { ...type.headline, color: '#fff' },
+  artistShuffle: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: space.sm,
+    backgroundColor: colors.secondaryGroupedBackground,
+  },
+  artistShuffleText: { ...type.headline, color: colors.label },
+  artistMore: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.secondaryGroupedBackground,
+  },
+  shelfRow: { paddingHorizontal: space.screen, gap: space.md, paddingBottom: space.xl, paddingTop: space.xs },
   showAll: { paddingHorizontal: space.screen, paddingVertical: space.md },
   showAllText: { ...type.body, color: colors.accent },
 });

@@ -15,7 +15,7 @@ type Props = {
   albumId: string;
   width: number;
   /** Second line under the title. */
-  caption?: 'artist' | 'year';
+  caption?: 'artist' | 'year' | 'none';
 };
 
 /** Album cover with title and artist. Tap opens the album; touch and hold for a native menu. */
@@ -40,9 +40,11 @@ export const AlbumTile = memo(function AlbumTile({ albumId, width, caption = 'ar
           <Text style={styles.title} numberOfLines={1}>
             {album.title}
           </Text>
-          <Text style={styles.caption} numberOfLines={1}>
-            {second}
-          </Text>
+          {caption === 'none' ? null : (
+            <Text style={styles.caption} numberOfLines={1}>
+              {second}
+            </Text>
+          )}
         </Touchable>
       </Link.Trigger>
       <Link.Preview />
