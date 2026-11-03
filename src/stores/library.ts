@@ -27,6 +27,8 @@ export type Artist = {
   name: string;
   albumIds: string[];
   trackIds: string[];
+  /** Picture the user chose for this artist, if any. */
+  image: string | null;
 };
 
 export type Playlist = {
@@ -76,6 +78,7 @@ type LibraryState = {
   recordPlaylistPlay(playlistId: string): void;
   setAlbumArtwork(albumId: string, relativePath: string | null): Promise<void>;
   setTrackArtwork(trackId: string, relativePath: string | null): Promise<void>;
+  setArtistImage(artistId: string, relativePath: string | null): Promise<void>;
   /** Renames an album and/or changes its album artist. Returns the album's new id. */
   updateAlbumInfo(albumId: string, info: { title: string; artist: string }): Promise<string>;
   createPlaylist(name: string, trackIds?: string[]): Promise<string>;
@@ -90,9 +93,10 @@ type Raw = {
   tracks: Record<string, Track>;
   albumRows: Record<string, AlbumRow>;
   playlists: Record<string, Playlist>;
+  artistImages: Record<string, string>;
 };
 
-let raw: Raw = { tracks: {}, albumRows: {}, playlists: {} };
+let raw: Raw = { tracks: {}, albumRows: {}, playlists: {}, artistImages: {} };
 
 function compareTracksInAlbum(a: Track, b: Track) {
   const disc = (a.discNumber ?? 1) - (b.discNumber ?? 1);
@@ -143,7 +147,7 @@ function derive(r: Raw) {
 
     const artistName = album.artist || UNKNOWN_ARTIST;
     const artistId = artistIdFor(artistName);
-    const artist = (artists[artistId] ??= { id: artistId, name: artistName, albumIds: [], trackIds: [] });
+    const artist = (artists[artistId] ??= { id: artistId, name: artistName, albumIds: [], trackIds: [], image: r.artistImages[artistId] ?? null });
     artist.albumIds.push(album.id);
   }
 
@@ -152,7 +156,7 @@ function derive(r: Raw) {
     const names = new Set([t.albumArtist || t.artist || UNKNOWN_ARTIST, t.artist || UNKNOWN_ARTIST]);
     for (const name of names) {
       const id = artistIdFor(name);
-      const artist = (artists[id] ??= { id, name, albumIds: [], trackIds: [] });
+      const artist = (artists[id] ??= { id, name, albumIds: [], trackIds: [], image: r.artistImages[id] ?? null });
       artist.trackIds.push(t.id);
     }
   }
@@ -225,7 +229,9 @@ export const useLibrary = create<LibraryState>((set, get) => {
       const playlists: Record<string, Playlist> = {};
       for (const p of data.playlists) playlists[p.id] = { ...p, trackIds: [] };
       for (const pt of data.playlistTracks) playlists[pt.playlistId]?.trackIds.push(pt.trackId);
-      raw = { tracks, albumRows, playlists };
+      const artistImages: Record<string, string> = {};
+      for (const a of data.artists) if (a.image) artistImages[a.id] = a.image;
+      raw = { tracks, albumRows, playlists, artistImages };
       rebuild({ ready: true });
     },
 
@@ -360,6 +366,17 @@ export const useLibrary = create<LibraryState>((set, get) => {
       rebuild({ artworkVersion: get().artworkVersion + 1 });
     },
 
+    async setArtistImage(artistId, relativePath) {
+      const old = raw.artistImages[artistId];
+      if (old && old !== relativePath) deleteRelative(old);
+      await DB.setArtistImage(artistId, relativePath);
+      const artistImages = { ...raw.artistImages };
+      if (relativePath) artistImages[artistId] = relativePath;
+      else delete artistImages[artistId];
+      raw = { ...raw, artistImages };
+      rebuild({ artworkVersion: get().artworkVersion + 1 });
+    },
+
     async updateAlbumInfo(albumId, info) {
       const album = get().albums[albumId];
       const oldRow = raw.albumRows[albumId];
@@ -488,6 +505,41 @@ export function trackArtworkPath(track: Track | undefined | null, albums: Record
   // Song artwork belongs to the song. An album's cover never replaces it.
   void albums;
   return track.customArtwork ?? track.embeddedArtwork ?? null;
+}
+
+/** Artist picture: the one the user chose, else their first album cover, else their first song's artwork. */
+export function artistArtworkPath(
+  artist: Artist | undefined | null,
+  albums: Record<string, Album>,
+  tracks: Record<string, Track>,
+): string | null {
+  if (!artist) return null;
+  if (artist.image) return artist.image;
+  for (const id of artist.albumIds) {
+    const p = albumArtworkPath(albums[id]);
+    if (p) return p;
+  }
+  for (const id of artist.trackIds) {
+    const p = trackArtworkPath(tracks[id], albums);
+    if (p) return p;
+  }
+  return null;
+}
+
+/** Every distinct cover found on an artist's albums and songs, for the picture picker. */
+export function artistArtworkChoices(
+  artist: Artist | undefined | null,
+  albums: Record<string, Album>,
+  tracks: Record<string, Track>,
+): string[] {
+  if (!artist) return [];
+  const seen = new Set<string>();
+  const add = (p: string | null) => {
+    if (p && !seen.has(p)) seen.add(p);
+  };
+  for (const id of artist.albumIds) add(albumArtworkPath(albums[id]));
+  for (const id of artist.trackIds) add(trackArtworkPath(tracks[id], albums));
+  return [...seen];
 }
 
 export function getLibrary() {

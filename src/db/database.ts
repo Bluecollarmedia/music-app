@@ -106,6 +106,12 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX IF NOT EXISTS idx_playlist_tracks ON playlist_tracks(playlistId, position);
   `,
+  `
+  CREATE TABLE IF NOT EXISTS artists (
+    id TEXT PRIMARY KEY NOT NULL,
+    image TEXT
+  );
+  `,
 ];
 
 export function getDb(): SQLiteDatabase {
@@ -131,6 +137,7 @@ export function loadAll() {
     tracks: d.getAllSync<TrackRow>('SELECT * FROM tracks'),
     albums: d.getAllSync<AlbumRow>('SELECT * FROM albums'),
     playlists: d.getAllSync<PlaylistRow>('SELECT * FROM playlists'),
+    artists: d.getAllSync<{ id: string; image: string | null }>('SELECT * FROM artists'),
     playlistTracks: d.getAllSync<PlaylistTrackRow>(
       'SELECT * FROM playlist_tracks ORDER BY playlistId, position',
     ),
@@ -155,6 +162,11 @@ export async function ensureAlbum(a: AlbumRow) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     a.id, a.title, a.artist, a.year, a.customArtwork, a.favorite, a.lastPlayed, a.dateAdded,
   );
+}
+
+/** The artist's chosen picture (a path inside Davesic's folder), or null to go back to automatic. */
+export async function setArtistImage(id: string, image: string | null) {
+  await getDb().runAsync('INSERT OR REPLACE INTO artists (id, image) VALUES (?, ?)', id, image);
 }
 
 export async function updateTrackFields(id: string, fields: Partial<TrackRow>) {

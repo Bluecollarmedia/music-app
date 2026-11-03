@@ -170,6 +170,24 @@ export function ArtistScreen() {
   return (
     <>
       <Stack.Title large>{artist.name}</Stack.Title>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="More">
+          <Stack.Toolbar.MenuAction
+            icon="person.crop.circle"
+            onPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'artist', id } })}
+          >
+            Change Artist Picture…
+          </Stack.Toolbar.MenuAction>
+          {artist.image ? (
+            <Stack.Toolbar.MenuAction
+              icon="arrow.uturn.backward"
+              onPress={() => restoreOriginalArtwork({ kind: 'artist', id })}
+            >
+              Use Automatic Picture
+            </Stack.Toolbar.MenuAction>
+          ) : null}
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
         <BrandBackdrop />
         <PlayShuffleBar

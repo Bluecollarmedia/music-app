@@ -29,11 +29,13 @@ import {
   pickFromPhotos,
   restoreOriginalArtwork,
   saveArtwork,
+  setArtistImageFromCover,
   type ArtworkTarget,
   type PickedImage,
 } from '@/library/artwork';
 import { haptics } from '@/lib/haptics';
-import { albumArtworkPath, useLibrary } from '@/stores/library';
+import { albumArtworkPath, artistArtworkChoices, artistArtworkPath, useLibrary } from '@/stores/library';
+import { useShallow } from 'zustand/react/shallow';
 import { colors, radius, space, springs, type } from '@/theme';
 
 const MAX_ZOOM = 6;
@@ -44,7 +46,7 @@ const MAX_ZOOM = 6;
  * sizes SONDER uses, then save. Audio files are never modified.
  */
 export default function ArtworkEditorScreen() {
-  const params = useLocalSearchParams<{ kind: 'album' | 'track'; id: string }>();
+  const params = useLocalSearchParams<{ kind: 'album' | 'track' | 'artist'; id: string }>();
   // Song artwork and album covers are separate: opening from a song edits that song only.
   const [target, setTarget] = useState<ArtworkTarget>(() => ({ kind: params.kind, id: params.id }));
   const [picked, setPicked] = useState<PickedImage | null>(null);
@@ -58,10 +60,15 @@ export default function ArtworkEditorScreen() {
     const albumId = params.kind === 'album' ? params.id : s.tracks[params.id]?.albumId;
     return albumId ? s.albums[albumId] : undefined;
   });
+  const artist = useLibrary((s) => (params.kind === 'artist' ? s.artists[params.id] : undefined));
+  const artistArtwork = useLibrary((s) => artistArtworkPath(artist, s.albums, s.tracks));
+  const artistChoices = useLibrary(useShallow((s) => artistArtworkChoices(artist, s.albums, s.tracks)));
   const albumArtwork = useAlbumArtwork(album?.id);
   const trackArtwork = useTrackArtwork(track?.id);
-  const currentArtwork = target.kind === 'track' ? trackArtwork : albumArtwork;
-  const hasCustom = target.kind === 'track' ? !!track?.customArtwork : !!album?.customArtwork;
+  const currentArtwork =
+    target.kind === 'artist' ? artistArtwork : target.kind === 'track' ? trackArtwork : albumArtwork;
+  const hasCustom =
+    target.kind === 'artist' ? !!artist?.image : target.kind === 'track' ? !!track?.customArtwork : !!album?.customArtwork;
   const albumHasCover = !!albumArtworkPath(album);
   const albumSongCount = album?.trackIds.length ?? 0;
 
@@ -108,7 +115,9 @@ export default function ArtworkEditorScreen() {
   const restore = () => {
     Alert.alert(
       'Restore Original Artwork?',
-      target.kind === 'album'
+      target.kind === 'artist'
+        ? 'Davesic will use a cover from this artist’s music again.'
+        : target.kind === 'album'
         ? 'The artwork embedded in this album’s files will be shown again.'
         : 'The artwork embedded in this song’s file will be shown again.',
       [
@@ -124,11 +133,21 @@ export default function ArtworkEditorScreen() {
     );
   };
 
-  const subject = target.kind === 'album' ? album?.title : track?.title;
+  const subject = target.kind === 'artist' ? artist?.name : target.kind === 'album' ? album?.title : track?.title;
+
+  const pickCover = async (cover: string) => {
+    try {
+      await setArtistImageFromCover(params.id, cover);
+      haptics.success();
+      router.back();
+    } catch (e) {
+      Alert.alert('Couldn’t use that cover', e instanceof Error ? e.message : 'Please try again.');
+    }
+  };
 
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]}>
-      <Stack.Screen options={{ headerShown: true, title: picked ? 'Move and Scale' : 'Artwork' }} />
+      <Stack.Screen options={{ headerShown: true, title: picked ? 'Move and Scale' : target.kind === 'artist' ? 'Artist Picture' : 'Artwork' }} />
       <Stack.Toolbar placement="left">
         <Stack.Toolbar.Button onPress={() => (picked ? setPicked(null) : router.back())}>
           {picked ? 'Back' : 'Cancel'}
@@ -158,12 +177,21 @@ export default function ArtworkEditorScreen() {
         ) : (
           <>
             <View style={styles.currentWrap}>
-              <Artwork path={currentArtwork} size={Math.min(viewport, 260)} style={styles.shadow} />
+              <Artwork
+                path={currentArtwork}
+                size={Math.min(viewport, 260)}
+                radius={target.kind === 'artist' ? Math.min(viewport, 260) / 2 : undefined}
+                style={styles.shadow}
+              />
               <Text style={styles.subject} numberOfLines={2}>
                 {subject ?? ''}
               </Text>
               <Text style={styles.scope}>
-                {target.kind === 'album' ? 'Album cover (songs keep their own artwork)' : 'Artwork for this song only'}
+                {target.kind === 'artist'
+                  ? 'Artist picture'
+                  : target.kind === 'album'
+                    ? 'Album cover (songs keep their own artwork)'
+                    : 'Artwork for this song only'}
               </Text>
             </View>
 
@@ -180,6 +208,25 @@ export default function ArtworkEditorScreen() {
                   onPress={() => album && setTarget({ kind: 'album', id: album.id })}
                 />
               </View>
+            ) : null}
+
+            {target.kind === 'artist' && artistChoices.length > 0 ? (
+              <>
+                <Text style={styles.choicesLabel}>CHOOSE FROM THIS ARTIST’S MUSIC</Text>
+                <View style={styles.choices}>
+                  {artistChoices.map((cover) => (
+                    <Pressable
+                      key={cover}
+                      onPress={() => pickCover(cover)}
+                      style={({ pressed }) => [pressed && { opacity: 0.6 }]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Use this cover as the artist picture"
+                    >
+                      <Artwork path={cover} size={(Math.min(viewport, 420) - space.md * 2) / 3} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
             ) : null}
 
             <View style={styles.group}>
@@ -219,7 +266,9 @@ export default function ArtworkEditorScreen() {
               ) : null}
             </View>
             <Text style={styles.footnote}>
-              {target.kind === 'album'
+              {target.kind === 'artist'
+                ? 'The artist picture shows in Artists. It doesn’t change any album or song artwork.'
+                : target.kind === 'album'
                 ? 'The album cover shows on the album page and in Albums. It doesn’t change any song’s artwork.'
                 : 'Song artwork shows in song lists, Now Playing and the Lock Screen. It doesn’t change the album cover.'}{' '}
               Your music files aren’t changed.
@@ -418,6 +467,8 @@ const styles = StyleSheet.create({
   },
   actionLabel: { ...type.body, color: colors.label, flex: 1 },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginLeft: space.lg + 40 },
+  choicesLabel: { ...type.caption, fontWeight: '600', color: colors.secondaryLabel, marginTop: space.xl, alignSelf: 'flex-start' },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: space.md, alignSelf: 'stretch', marginTop: space.sm },
   footnote: { ...type.footnote, color: colors.secondaryLabel, marginTop: space.md, paddingHorizontal: space.lg, lineHeight: 18 },
   viewport: {
     overflow: 'hidden',

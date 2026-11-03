@@ -26,7 +26,7 @@ import { TrackRow } from '@/components/TrackRow';
 import { useAlbumArtwork } from '@/hooks/useArtwork';
 import { useHrefs, useTab } from '@/hooks/useTab';
 import { pluralize, sortKey } from '@/lib/format';
-import { albumArtworkPath, useLibrary } from '@/stores/library';
+import { artistArtworkPath, useLibrary } from '@/stores/library';
 import { player } from '@/stores/player';
 import { useSettings, type SongSort } from '@/stores/settings';
 import { colors, layout, radius, space, type } from '@/theme';
@@ -225,15 +225,13 @@ const ARTIST_ROW = 92;
 
 function ArtistRow({ artistId }: { artistId: string }) {
   const artist = useLibrary((s) => s.artists[artistId]);
-  const cover = useLibrary((s) => {
-    const a = s.artists[artistId];
-    return a ? albumArtworkPath(s.albums[a.albumIds[0]]) : null;
-  });
+  const cover = useLibrary((s) => artistArtworkPath(s.artists[artistId], s.albums, s.tracks));
   const hrefs = useHrefs();
   if (!artist) return null;
   const albums = artist.albumIds.length;
   return (
     <Link href={hrefs.artist(artistId)} asChild>
+      <Link.Trigger>
       <Touchable
         style={styles.artistRow}
         pressedStyle={{ backgroundColor: colors.fill }}
@@ -255,6 +253,14 @@ function ArtistRow({ artistId }: { artistId: string }) {
         <SymbolView name="chevron.right" size={15} weight="semibold" tintColor={colors.tertiaryLabel} />
         <View style={styles.artistSeparator} />
       </Touchable>
+      </Link.Trigger>
+      <Link.Menu>
+        <Link.MenuAction
+          title="Change Artist Picture…"
+          icon="person.crop.circle"
+          onPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'artist', id: artistId } })}
+        />
+      </Link.Menu>
     </Link>
   );
 }

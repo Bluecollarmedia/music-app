@@ -7,7 +7,10 @@ import { CUSTOM_ART_DIR, ensureDir, fileForRelative } from '@/lib/paths';
 import { getLibrary } from '@/stores/library';
 
 /** What the artwork applies to. */
-export type ArtworkTarget = { kind: 'album'; id: string } | { kind: 'track'; id: string };
+export type ArtworkTarget =
+  | { kind: 'album'; id: string }
+  | { kind: 'track'; id: string }
+  | { kind: 'artist'; id: string };
 
 export type PickedImage = { uri: string; width: number; height: number };
 
@@ -76,15 +79,27 @@ export async function saveArtwork(target: ArtworkTarget, source: PickedImage, cr
 
   if (target.kind === 'album') {
     await getLibrary().setAlbumArtwork(target.id, relative);
+  } else if (target.kind === 'artist') {
+    await getLibrary().setArtistImage(target.id, relative);
   } else {
     await getLibrary().setTrackArtwork(target.id, relative);
   }
+}
+
+/** Uses one of the artist's existing covers as their picture (as its own copy, so it stays put). */
+export async function setArtistImageFromCover(artistId: string, cover: string): Promise<void> {
+  ensureDir(CUSTOM_ART_DIR);
+  const relative = `${CUSTOM_ART_DIR}/artist-${artistId}-${Date.now()}.jpg`;
+  new File(fileForRelative(cover)).copy(fileForRelative(relative));
+  await getLibrary().setArtistImage(artistId, relative);
 }
 
 /** Removes custom artwork so the artwork embedded in the music files shows again. */
 export async function restoreOriginalArtwork(target: ArtworkTarget): Promise<void> {
   if (target.kind === 'album') {
     await getLibrary().setAlbumArtwork(target.id, null);
+  } else if (target.kind === 'artist') {
+    await getLibrary().setArtistImage(target.id, null);
   } else {
     await getLibrary().setTrackArtwork(target.id, null);
   }
