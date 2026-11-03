@@ -29,7 +29,7 @@ export function toggleFavoriteAlbum(id: string) {
 export function confirmDeleteTracks(ids: string[], label: string, onDone?: () => void) {
   Alert.alert(
     `Delete ${label}?`,
-    'The music file will be removed from SONDER and from this iPhone. This can’t be undone.',
+    'The music file will be removed from Davesic and from this iPhone. This can’t be undone.',
     [
       { text: 'Cancel', style: 'cancel' },
       {

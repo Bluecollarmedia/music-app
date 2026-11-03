@@ -11,11 +11,14 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.bluecollarmedia.sonder",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"],
+        "UIBackgroundModes": [
+          "audio"
+        ],
         "UIFileSharingEnabled": true,
         "LSSupportsOpeningDocumentsInPlace": true,
         "ITSAppUsesNonExemptEncryption": false,
-        "NSPhotoLibraryUsageDescription": "SONDER uses your photos so you can choose custom album artwork."
+        "NSPhotoLibraryUsageDescription": "Davesic uses your photos so you can choose custom album artwork.",
+        "CFBundleDisplayName": "Davesic"
       }
     },
     "android": {
@@ -41,7 +44,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "SONDER uses your photos so you can choose custom album artwork.",
+          "photosPermission": "Davesic uses your photos so you can choose custom album artwork.",
           "cameraPermission": false,
           "microphonePermission": false
         }

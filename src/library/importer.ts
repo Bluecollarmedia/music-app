@@ -80,7 +80,7 @@ async function runImport(sources: { file: File; name: string; move: boolean }[])
     const summary: ImportSummary = {
       added: 0,
       duplicates: 0,
-      failed: [{ name: 'Import', reason: 'Importing needs the SONDER development build (not Expo Go).' }],
+      failed: [{ name: 'Import', reason: 'Importing needs the Davesic development build (not Expo Go).' }],
     };
     useImport.setState({ lastSummary: summary });
     return summary;

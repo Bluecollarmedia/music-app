@@ -74,7 +74,7 @@ export function LibraryScreen() {
           <EmptyState
             symbol="square.stack"
             title="No music yet"
-            message="Tap + to import songs from Files, or copy them into “On My iPhone › SONDER” and scan."
+            message="Tap + to import songs from Files, or copy them into “On My iPhone › Davesic” and scan."
             action={{ label: 'Import Music', onPress: runImportFromFiles }}
           />
         ) : (

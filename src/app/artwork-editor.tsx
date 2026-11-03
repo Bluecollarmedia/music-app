@@ -216,7 +216,7 @@ export default function ArtworkEditorScreen() {
               ) : null}
             </View>
             <Text style={styles.footnote}>
-              Custom artwork is saved inside SONDER and shows everywhere, including the Lock Screen. Your music files
+              Custom artwork is saved inside Davesic and shows everywhere, including the Lock Screen. Your music files
               aren’t changed.
             </Text>
           </>

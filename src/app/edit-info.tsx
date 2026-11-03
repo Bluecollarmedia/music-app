@@ -88,7 +88,7 @@ export default function EditInfoScreen() {
         </View>
         <Text style={styles.footnote}>
           File: {track.file.split('/').pop()} · {formatBytes(track.fileSize)} · {formatTime(track.duration)}
-          {'\n'}Edits are saved in SONDER. Your music file isn’t modified.
+          {'\n'}Edits are saved in Davesic. Your music file isn’t modified.
         </Text>
       </ScrollView>
     </>

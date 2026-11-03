@@ -26,7 +26,7 @@ export async function runScan() {
   if (summary && summary.added === 0 && summary.failed.length === 0 && summary.duplicates === 0) {
     Alert.alert(
       'No New Files',
-      'To add music this way, copy files into “On My iPhone › SONDER” in the Files app (or SONDER in Finder), then scan again.',
+      'To add music this way, copy files into “On My iPhone › Davesic” in the Files app (or Davesic in Finder), then scan again.',
     );
     return;
   }
@@ -42,7 +42,7 @@ export function LibraryToolbar() {
           Import from Files
         </Stack.Toolbar.MenuAction>
         <Stack.Toolbar.MenuAction icon="arrow.clockwise" onPress={runScan}>
-          Scan SONDER Folder
+          Scan Davesic Folder
         </Stack.Toolbar.MenuAction>
       </Stack.Toolbar.Menu>
       <Stack.Toolbar.Button icon="gearshape" accessibilityLabel="Settings" onPress={() => router.push('/settings')} />

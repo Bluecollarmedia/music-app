@@ -139,17 +139,17 @@ export default function SettingsScreen() {
 
         <Group title="Library">
           <Row symbol="folder" label="Import from Files" onPress={runImportFromFiles} chevron />
-          <Row symbol="arrow.clockwise" label="Scan SONDER Folder" onPress={runScan} chevron />
+          <Row symbol="arrow.clockwise" label="Scan Davesic Folder" onPress={runScan} chevron />
           <Row symbol="music.note" label="Songs" value={songCount.toLocaleString()} />
           <Row symbol="internaldrive" label="Music Storage" value={formatBytes(librarySize)} />
           <Row symbol="externaldrive" label="Available on iPhone" value={available ? formatBytes(available) : '—'} last />
         </Group>
         <Footer>
-          SONDER plays MP3, AAC/M4A, ALAC, FLAC, WAV and AIFF. You can also copy music into “On My iPhone › SONDER”
-          in the Files app, then choose Scan SONDER Folder. {pluralize(songCount, 'song')} stored on this iPhone.
+          Davesic plays MP3, AAC/M4A, ALAC, FLAC, WAV and AIFF. You can also copy music into “On My iPhone › Davesic”
+          in the Files app, then choose Scan Davesic Folder. {pluralize(songCount, 'song')} stored on this iPhone.
         </Footer>
 
-        <Text style={styles.version}>SONDER {Constants.expoConfig?.version ?? ''}</Text>
+        <Text style={styles.version}>Davesic {Constants.expoConfig?.version ?? ''}</Text>
       </ScrollView>
     </>
   );

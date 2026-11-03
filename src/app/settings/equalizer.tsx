@@ -140,7 +140,7 @@ export default function EqualizerScreen() {
           ))}
         </View>
         <Text style={styles.footnote}>
-          The equalizer applies to everything SONDER plays, on the speaker, headphones, Bluetooth and AirPlay. Boosts
+          The equalizer applies to everything Davesic plays, on the speaker, headphones, Bluetooth and AirPlay. Boosts
           automatically lower the overall level a little so loud songs don’t distort.
         </Text>
       </ScrollView>

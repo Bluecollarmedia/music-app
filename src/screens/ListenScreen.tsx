@@ -70,7 +70,7 @@ export function ListenScreen() {
           <EmptyState
             symbol="music.note.house"
             title="Your music lives here"
-            message="Import songs from the Files app to start your SONDER library. Everything stays on your iPhone."
+            message="Import songs from the Files app to start your Davesic library. Everything stays on your iPhone."
             action={{ label: 'Import Music', onPress: runImportFromFiles }}
           />
         ) : (

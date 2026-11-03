@@ -200,7 +200,7 @@ export async function initPlayer() {
 
 function guard(): boolean {
   if (!nativeAvailable) {
-    usePlayer.setState({ lastError: 'Playback needs the SONDER development build (it does not run in Expo Go).' });
+    usePlayer.setState({ lastError: 'Playback needs the Davesic development build (it does not run in Expo Go).' });
     return false;
   }
   return true;
