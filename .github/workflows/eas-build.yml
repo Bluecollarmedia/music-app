@@ -2,6 +2,7 @@ name: EAS iOS build
 
 # Builds SONDER on Expo's servers and sends it to TestFlight.
 # Run it from the Actions tab, or add the "eas-build" label to a pull request.
+# The "eas-submit" label only sends the latest finished build to TestFlight.
 # Needs the EXPO_TOKEN repo secret. The Apple credentials are set up once
 # (see README, "First build"), after which this runs without any prompts.
 on:
@@ -21,7 +22,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'eas-build'
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'eas-build' || github.event.label.name == 'eas-submit'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -51,7 +52,12 @@ jobs:
       - name: Link the EAS project
         run: eas init --non-interactive --force
 
+      - name: Send the latest build to TestFlight
+        if: github.event.label.name == 'eas-submit'
+        run: eas submit --platform ios --latest --non-interactive --wait
+
       - name: Build (and submit to TestFlight for production)
+        if: github.event.label.name != 'eas-submit'
         env:
           PROFILE: ${{ inputs.profile || 'production' }}
         run: |
