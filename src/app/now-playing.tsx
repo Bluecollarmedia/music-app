@@ -221,7 +221,12 @@ function TransportButton({
   const pressed = useSharedValue(0);
   const style = useAnimatedStyle(() => ({
     transform: [{ scale: 1 - pressed.value * 0.12 }],
-    backgroundColor: `rgba(255,255,255,${pressed.value * 0.12})`,
+  }));
+  // The press highlight fades with opacity. (Building an rgba() string from a spring value
+  // crashed the app: near the end of the spring the number turns into "1e-7" notation,
+  // which isn't a valid color.)
+  const highlight = useAnimatedStyle(() => ({
+    opacity: Math.min(1, Math.max(0, pressed.value)),
   }));
   return (
     <Pressable
@@ -233,6 +238,7 @@ function TransportButton({
       hitSlop={8}
     >
       <Animated.View style={[large ? styles.transportLarge : styles.transportSmall, style]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.pressHighlight, highlight]} />
         <SymbolView name={symbol} size={size} tintColor={onArtwork.primary} />
       </Animated.View>
     </Pressable>
@@ -336,5 +342,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconButtonActive: { backgroundColor: 'rgba(255,255,255,0.88)' },
+  pressHighlight: { borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.12)' },
   routePicker: { width: 30, height: 30 },
 });
