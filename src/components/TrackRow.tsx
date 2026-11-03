@@ -97,7 +97,7 @@ export const TrackRow = memo(function TrackRow({
     >
       <Link.Trigger>
         <Touchable
-          style={styles.row}
+          style={prominent ? styles.rowProminent : styles.row}
           pressedStyle={styles.pressed}
           accessibilityRole="button"
           accessibilityLabel={a11y}
@@ -126,7 +126,7 @@ export const TrackRow = memo(function TrackRow({
               {track.title}
             </Text>
             {sub ? (
-              <Text style={styles.subtitle} numberOfLines={1}>
+              <Text style={[styles.subtitle, prominent && styles.subtitleProminent]} numberOfLines={1}>
                 {sub}
               </Text>
             ) : null}
@@ -211,6 +211,15 @@ const styles = StyleSheet.create({
     gap: space.md,
     backgroundColor: 'transparent',
   },
+  /** Spotify-style: one tidy 64pt line per song, artwork lined up in a column. */
+  rowProminent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 64,
+    paddingHorizontal: 16,
+    gap: 12,
+    backgroundColor: 'transparent',
+  },
   pressed: {
     backgroundColor: colors.fill,
   },
@@ -248,6 +257,7 @@ const styles = StyleSheet.create({
     ...type.subhead,
     color: colors.secondaryLabel,
   },
+  subtitleProminent: { fontSize: 15, fontWeight: '500' },
   heart: {
     width: 12,
     height: 12,
