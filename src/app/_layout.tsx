@@ -56,10 +56,14 @@ export default function RootLayout() {
           <Stack.Screen
             name="now-playing"
             options={{
-              // A native iOS sheet: UIKit runs the open and the swipe-down-to-close, so both
-              // follow the finger and settle at 120 Hz with no JS in the loop.
-              presentation: 'modal',
+              // Full screen, edge to edge. It slides up from the bottom and closes with a native
+              // swipe down anywhere on the screen, so it follows the finger with no JS in the loop.
+              presentation: 'card',
+              animation: 'slide_from_bottom',
               gestureEnabled: true,
+              gestureDirection: 'vertical',
+              fullScreenGestureEnabled: true,
+              animationMatchesGesture: true,
               contentStyle: { backgroundColor: '#0B0B0D' },
             }}
           />
