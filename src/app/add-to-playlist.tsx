@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { PlaylistArtwork } from '@/components/PlaylistArtwork';
 import { haptics } from '@/lib/haptics';
 import { pluralize } from '@/lib/format';
@@ -30,21 +31,24 @@ export default function AddToPlaylistSheet() {
         keyExtractor={(id) => id}
         contentContainerStyle={{ paddingBottom: 40 }}
         ListHeaderComponent={
-          <Pressable
-            style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.fill }]}
-            onPress={() =>
-              promptNewPlaylist(trackIds, () => {
-                haptics.success();
-                router.back();
-              })
-            }
-            accessibilityRole="button"
-          >
-            <View style={styles.newIcon}>
-              <SymbolView name="plus" size={22} tintColor={colors.accent} />
-            </View>
-            <Text style={[styles.title, { color: colors.accent }]}>New Playlist…</Text>
-          </Pressable>
+          <>
+            <BrandBackdrop header="inline" />
+            <Pressable
+              style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.fill }]}
+              onPress={() =>
+                promptNewPlaylist(trackIds, () => {
+                  haptics.success();
+                  router.back();
+                })
+              }
+              accessibilityRole="button"
+            >
+              <View style={styles.newIcon}>
+                <SymbolView name="plus" size={22} tintColor={colors.accent} />
+              </View>
+              <Text style={[styles.title, { color: colors.accent }]}>New Playlist…</Text>
+            </Pressable>
+          </>
         }
         renderItem={({ item }) => (
           <Pressable

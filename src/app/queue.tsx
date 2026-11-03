@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Artwork } from '@/components/Artwork';
 import { DraggableList } from '@/components/DraggableList';
 import { useTrackArtwork } from '@/hooks/useArtwork';
@@ -32,6 +33,7 @@ export default function QueueScreen() {
       scrollEnabled={!dragging}
       contentInsetAdjustmentBehavior="automatic"
     >
+      <BrandBackdrop header="none" />
       <View style={styles.header}>
         <NowPlayingRow trackId={trackId} />
         <View style={styles.pills}>

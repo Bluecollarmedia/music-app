@@ -6,10 +6,18 @@ const backdrop = require('../../assets/brand-backdrop.png');
 
 /**
  * The Davesic logo, enlarged and faded, glowing behind the top of a screen.
- * Put it first inside a scroll view's content (or as a list header): it takes no space,
+ * Put it first inside a scroll view's content (or in a list header): it takes no space,
  * sits behind the rows and scrolls away with them. Shown in dark mode only.
  */
-export function BrandBackdrop() {
+type Props = {
+  /**
+   * What sits above the scroll content: a large title (tab screens), a plain navigation bar
+   * (album and playlist pages), or nothing (sheets and modals with their own header).
+   */
+  header?: 'large' | 'inline' | 'none';
+};
+
+export function BrandBackdrop({ header = 'large' }: Props) {
   const scheme = useColorScheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -20,7 +28,7 @@ export function BrandBackdrop() {
   const centerX = width * 0.66;
   const centerY = width * 0.36;
   // Content starts below the status bar, navigation bar and large title.
-  const contentTop = insets.top + 96;
+  const contentTop = header === 'large' ? insets.top + 96 : header === 'inline' ? insets.top + 44 : 0;
 
   return (
     <View pointerEvents="none" style={styles.anchor} importantForAccessibility="no-hide-descendants">
@@ -43,5 +51,6 @@ export function BrandBackdrop() {
 }
 
 const styles = StyleSheet.create({
-  anchor: { height: 0, zIndex: -1 },
+  // Absolute, so it ignores the container's padding and gap and takes no space.
+  anchor: { position: 'absolute', top: 0, left: 0, width: 0, height: 0 },
 });

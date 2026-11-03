@@ -5,6 +5,7 @@ import { SymbolView, type SFSymbol } from 'expo-symbols';
 import type { ReactNode } from 'react';
 import { ActionSheetIOS, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { runImportFromFiles, runScan } from '@/components/LibraryToolbar';
 import { formatBytes, pluralize } from '@/lib/format';
 import { useLibrary } from '@/stores/library';
@@ -54,6 +55,7 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
       >
+        <BrandBackdrop header="inline" />
         <Group title="Playback">
           <Row
             symbol="wave.3.right"

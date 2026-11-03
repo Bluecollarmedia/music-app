@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, Vi
 import { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 
 import { AlbumTile } from '@/components/AlbumTile';
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Artwork } from '@/components/Artwork';
 import { DraggableList } from '@/components/DraggableList';
 import { EmptyState } from '@/components/EmptyState';
@@ -88,6 +89,7 @@ export function AlbumScreen() {
         </Stack.Toolbar.Menu>
       </Stack.Toolbar>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        <BrandBackdrop header="inline" />
         <View style={styles.hero}>
           <Pressable
             onLongPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'album', id } })}
@@ -157,6 +159,7 @@ export function ArtistScreen() {
     <>
       <Stack.Title large>{artist.name}</Stack.Title>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        <BrandBackdrop />
         <PlayShuffleBar
           onPlay={() => player.playTracks(artist.trackIds, 0, { shuffle: false })}
           onShuffle={() => player.playTracks(artist.trackIds, 0, { shuffle: true })}
@@ -273,6 +276,7 @@ export function PlaylistScreen() {
         scrollEnabled={!dragging}
         contentContainerStyle={{ paddingBottom: 140 }}
       >
+        <BrandBackdrop header="inline" />
         <View style={styles.hero}>
           <PlaylistArtwork playlistId={id} size={220} />
           <Text style={styles.heroTitle} accessibilityRole="header">

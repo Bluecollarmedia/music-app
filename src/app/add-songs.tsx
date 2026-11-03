@@ -3,6 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { useDeferredValue, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Artwork } from '@/components/Artwork';
 import { useTrackArtwork } from '@/hooks/useArtwork';
 import { haptics } from '@/lib/haptics';
@@ -54,6 +55,7 @@ export default function AddSongsScreen() {
         keyExtractor={(id) => id}
         contentInsetAdjustmentBehavior="automatic"
         keyboardDismissMode="on-drag"
+        ListHeaderComponent={<BrandBackdrop header="inline" />}
         getItemLayout={(_, index) => ({ length: layout.rowHeight, offset: layout.rowHeight * index, index })}
         renderItem={({ item }) => <PickRow id={item} checked={selected.includes(item)} onPress={() => toggle(item)} />}
       />

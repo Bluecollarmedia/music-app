@@ -5,6 +5,7 @@ import { GestureDetector, usePanGesture } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { newId } from '@/lib/ids';
 import { allPresets, useSettings } from '@/stores/settings';
 import { colors, radius, space, type } from '@/theme';
@@ -95,6 +96,7 @@ export default function EqualizerScreen() {
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
       >
+        <BrandBackdrop header="inline" />
         <View style={styles.card}>
           <View style={styles.toggleRow}>
             <View style={{ flex: 1 }}>
