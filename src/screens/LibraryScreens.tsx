@@ -496,7 +496,12 @@ export function FavoritesScreen() {
               onShuffle={() => player.playTracks(songIds, 0, { shuffle: true })}
             />
             {songIds.map((id, i) => (
-              <TrackRow key={id} trackId={id} onPress={() => player.playTracks(songIds, i, { shuffle: false })} />
+              <TrackRow
+                key={id}
+                trackId={id}
+                prominent
+                onPress={() => player.playTracks(songIds, i, { shuffle: false })}
+              />
             ))}
           </>
         ) : null}

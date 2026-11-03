@@ -1,7 +1,7 @@
 import { Link, router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Artwork } from '@/components/Artwork';
 import { Touchable } from '@/components/Touchable';
@@ -21,6 +21,11 @@ type Props = {
   subtitle?: 'artist' | 'artistAlbum' | 'none';
   /** Extra menu action, e.g. "Remove from Playlist". */
   onRemove?: { title: string; action: () => void };
+  /**
+   * Spotify-style row: larger artwork, bold white title, artist only underneath,
+   * and a visible ⋯ button on the right (same actions as touch-and-hold).
+   */
+  prominent?: boolean;
 };
 
 export const TrackRow = memo(function TrackRow({
@@ -29,6 +34,7 @@ export const TrackRow = memo(function TrackRow({
   variant = 'artwork',
   subtitle = 'artistAlbum',
   onRemove,
+  prominent = false,
 }: Props) {
   const track = useLibrary((s) => s.tracks[trackId]);
   const artwork = useTrackArtwork(variant === 'artwork' ? trackId : null);
@@ -39,13 +45,43 @@ export const TrackRow = memo(function TrackRow({
   if (!track) return null;
 
   const sub =
-    subtitle === 'artist'
+    prominent || subtitle === 'artist'
       ? track.artist
       : subtitle === 'artistAlbum'
         ? `${track.artist} · ${track.album}`
         : null;
 
   const a11y = `${track.title}, ${track.artist}${isCurrent ? ', now playing' : ''}`;
+
+  const showActions = () => {
+    const actions: { title: string; run: () => void; destructive?: boolean }[] = [
+      { title: 'Play Next', run: () => playNext([trackId]) },
+      { title: 'Add to Queue', run: () => addToQueue([trackId]) },
+      { title: 'Add to Playlist…', run: () => router.push({ pathname: '/add-to-playlist', params: { ids: trackId } }) },
+      { title: track.favorite ? 'Remove from Favorites' : 'Favorite', run: () => toggleFavoriteTrack(trackId) },
+      { title: 'Go to Album', run: () => router.push(hrefs.album(track.albumId)) },
+      { title: 'Go to Artist', run: () => router.push(hrefs.artist(artistIdFor(track.artist))) },
+      { title: 'Share Song…', run: () => void shareTrack(trackId) },
+      {
+        title: 'Change Artwork…',
+        run: () => router.push({ pathname: '/artwork-editor', params: { kind: 'track', id: trackId } }),
+      },
+      { title: 'Song Info…', run: () => router.push({ pathname: '/edit-info', params: { id: trackId } }) },
+      onRemove
+        ? { title: onRemove.title, run: onRemove.action, destructive: true }
+        : { title: 'Delete from Library', run: () => confirmDeleteTracks([trackId], `“${track.title}”`), destructive: true },
+    ];
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: track.title,
+        message: track.artist,
+        options: [...actions.map((a) => a.title), 'Cancel'],
+        destructiveButtonIndex: actions.length - 1,
+        cancelButtonIndex: actions.length,
+      },
+      (i) => actions[i]?.run(),
+    );
+  };
 
   return (
     <Link
@@ -66,7 +102,7 @@ export const TrackRow = memo(function TrackRow({
           accessibilityHint="Plays this song. Touch and hold for more options."
         >
           {variant === 'artwork' ? (
-            <Artwork path={artwork} size={layout.rowArtwork} />
+            <Artwork path={artwork} size={prominent ? 56 : layout.rowArtwork} radius={prominent ? 6 : undefined} />
           ) : (
             <View style={styles.number}>
               {isCurrent ? (
@@ -82,7 +118,7 @@ export const TrackRow = memo(function TrackRow({
           )}
           <View style={styles.text}>
             <Text
-              style={[styles.title, isCurrent && { color: colors.accent }]}
+              style={[styles.title, prominent && styles.titleProminent, isCurrent && !prominent && { color: colors.accent }]}
               numberOfLines={1}
             >
               {track.title}
@@ -93,11 +129,22 @@ export const TrackRow = memo(function TrackRow({
               </Text>
             ) : null}
           </View>
-          {track.favorite ? (
+          {track.favorite && !prominent ? (
             <SymbolView name="heart.fill" size={12} tintColor={colors.favorite} style={styles.heart} />
           ) : null}
           {variant === 'number' ? (
             <Text style={styles.duration}>{formatTime(track.duration)}</Text>
+          ) : null}
+          {prominent ? (
+            <Pressable
+              onPress={showActions}
+              hitSlop={12}
+              style={styles.more}
+              accessibilityRole="button"
+              accessibilityLabel={`More options for ${track.title}`}
+            >
+              <SymbolView name="ellipsis" size={18} weight="bold" tintColor={colors.secondaryLabel} />
+            </Pressable>
           ) : null}
         </Touchable>
       </Link.Trigger>
@@ -179,6 +226,19 @@ const styles = StyleSheet.create({
   title: {
     ...type.body,
     color: colors.label,
+  },
+  titleProminent: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+    color: colors.label,
+  },
+  more: {
+    width: 36,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -space.sm,
   },
   subtitle: {
     ...type.subhead,
