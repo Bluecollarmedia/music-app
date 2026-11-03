@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { useShallow } from 'zustand/react/shallow';
 
 import { AlbumTile } from '@/components/AlbumTile';
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { EmptyState } from '@/components/EmptyState';
 import { ImportBanner } from '@/components/ImportBanner';
 import { LibraryToolbar, runImportFromFiles } from '@/components/LibraryToolbar';
@@ -65,6 +66,7 @@ export function ListenScreen() {
       <Stack.Title large>Listen</Stack.Title>
       <LibraryToolbar />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+        <BrandBackdrop />
         <ImportBanner />
         {ready && songCount === 0 ? (
           <EmptyState

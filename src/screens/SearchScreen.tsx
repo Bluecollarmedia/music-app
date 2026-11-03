@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AlbumTile } from '@/components/AlbumTile';
 import { Artwork } from '@/components/Artwork';
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Touchable } from '@/components/Touchable';
 import { EmptyState } from '@/components/EmptyState';
 import { PlaylistArtwork } from '@/components/PlaylistArtwork';
@@ -88,6 +89,7 @@ export function SearchScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 140 }}
       >
+        <BrandBackdrop />
         {!results ? (
           <EmptyState
             symbol="magnifyingglass"

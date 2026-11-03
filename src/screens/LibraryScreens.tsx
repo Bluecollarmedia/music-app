@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { AlbumTile } from '@/components/AlbumTile';
 import { Artwork } from '@/components/Artwork';
+import { BrandBackdrop } from '@/components/BrandBackdrop';
 import { Touchable } from '@/components/Touchable';
 import { EmptyState } from '@/components/EmptyState';
 import { ImportBanner } from '@/components/ImportBanner';
@@ -69,6 +70,7 @@ export function LibraryScreen() {
       <Stack.Title large>Library</Stack.Title>
       <LibraryToolbar />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        <BrandBackdrop />
         <ImportBanner />
         {ready && counts.songs === 0 ? (
           <EmptyState
@@ -161,6 +163,7 @@ export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
           contentInsetAdjustmentBehavior="automatic"
           columnWrapperStyle={{ gap: layout.gridGap, paddingHorizontal: space.screen }}
           contentContainerStyle={{ gap: space.xl, paddingTop: space.md, paddingBottom: 140 }}
+          ListHeaderComponent={<BrandBackdrop />}
           renderItem={({ item }) => <AlbumTile albumId={item} width={tileWidth} />}
           initialNumToRender={10}
           windowSize={7}
@@ -173,6 +176,7 @@ export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
           keyExtractor={(id) => id}
           contentInsetAdjustmentBehavior="automatic"
           contentContainerStyle={{ paddingBottom: 140 }}
+          ListHeaderComponent={<BrandBackdrop />}
           renderItem={({ item }) => <AlbumListRow albumId={item} />}
           getItemLayout={(_, index) => ({ length: 76, offset: 76 * index, index })}
           ListEmptyComponent={<EmptyState symbol="square.stack" title="No albums" message="Imported music appears here." />}
@@ -213,21 +217,43 @@ function AlbumListRow({ albumId }: { albumId: string }) {
 
 export function ArtistsScreen() {
   const artistOrder = useLibrary((s) => s.artistOrder);
+  const artists = useLibrary((s) => s.artists);
+  const [sort, setSort] = useState<'name' | 'songs'>('name');
+  const ids = useMemo(
+    () =>
+      sort === 'name'
+        ? artistOrder
+        : [...artistOrder].sort((a, b) => (artists[b]?.trackIds.length ?? 0) - (artists[a]?.trackIds.length ?? 0)),
+    [sort, artistOrder, artists],
+  );
   return (
     <>
-      <Stack.Title>Artists</Stack.Title>
+      <Stack.Title large>Artists</Stack.Title>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu icon="ellipsis" accessibilityLabel="Sort artists">
+          <Stack.Toolbar.MenuAction isOn={sort === 'name'} onPress={() => setSort('name')}>
+            Name
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction isOn={sort === 'songs'} onPress={() => setSort('songs')}>
+            Most Songs
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
       <FlatList
-        data={artistOrder}
+        data={ids}
         keyExtractor={(id) => id}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ paddingBottom: 140 }}
+        ListHeaderComponent={<BrandBackdrop />}
         renderItem={({ item }) => <ArtistRow artistId={item} />}
-        getItemLayout={(_, index) => ({ length: 68, offset: 68 * index, index })}
+        getItemLayout={(_, index) => ({ length: ARTIST_ROW, offset: ARTIST_ROW * index, index })}
         ListEmptyComponent={<EmptyState symbol="music.mic" title="No artists" message="Imported music appears here." />}
       />
     </>
   );
 }
+
+const ARTIST_ROW = 92;
 
 function ArtistRow({ artistId }: { artistId: string }) {
   const artist = useLibrary((s) => s.artists[artistId]);
@@ -237,24 +263,29 @@ function ArtistRow({ artistId }: { artistId: string }) {
   });
   const hrefs = useHrefs();
   if (!artist) return null;
+  const albums = artist.albumIds.length;
   return (
     <Link href={hrefs.artist(artistId)} asChild>
       <Touchable
-        style={[styles.listRow, { height: 68 }]}
+        style={styles.artistRow}
         pressedStyle={{ backgroundColor: colors.fill }}
-        accessibilityLabel={artist.name}
+        accessibilityRole="button"
+        accessibilityLabel={`${artist.name}, ${albums > 0 ? `${pluralize(albums, 'album')}, ` : ''}${pluralize(artist.trackIds.length, 'song')}`}
       >
-        <Artwork path={cover} size={48} radius={24} />
+        <View style={styles.artistAvatar}>
+          <Artwork path={cover} size={60} radius={30} />
+        </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.rowTitle} numberOfLines={1}>
+          <Text style={styles.artistName} numberOfLines={1}>
             {artist.name}
           </Text>
-          <Text style={styles.rowSub}>
-            {artist.albumIds.length > 0 ? `${pluralize(artist.albumIds.length, 'album')} · ` : ''}
+          <Text style={styles.artistSub} numberOfLines={1}>
+            {albums > 0 ? `${pluralize(albums, 'album')} • ` : ''}
             {pluralize(artist.trackIds.length, 'song')}
           </Text>
         </View>
-        <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
+        <SymbolView name="chevron.right" size={15} weight="semibold" tintColor={colors.tertiaryLabel} />
+        <View style={styles.artistSeparator} />
       </Touchable>
     </Link>
   );
@@ -322,12 +353,15 @@ export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ paddingBottom: 140 }}
         ListHeaderComponent={
-          ids.length > 0 ? (
-            <PlayShuffleBar
-              onPlay={() => player.playTracks(ids, 0, { shuffle: false })}
-              onShuffle={() => player.playTracks(ids, 0, { shuffle: true })}
-            />
-          ) : undefined
+          <>
+            <BrandBackdrop />
+            {ids.length > 0 ? (
+              <PlayShuffleBar
+                onPlay={() => player.playTracks(ids, 0, { shuffle: false })}
+                onShuffle={() => player.playTracks(ids, 0, { shuffle: true })}
+              />
+            ) : null}
+          </>
         }
         renderItem={({ item, index }) => (
           <TrackRow trackId={item} onPress={() => player.playTracks(ids, index, { shuffle: false })} />
@@ -386,7 +420,8 @@ export function PlaylistsScreen() {
         keyExtractor={(id) => id}
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ paddingBottom: 140 }}
-        renderItem={({ item }) => <PlaylistRow playlistId={item} />}
+        ListHeaderComponent={<BrandBackdrop />}
+          renderItem={({ item }) => <PlaylistRow playlistId={item} />}
         ListEmptyComponent={
           <EmptyState
             symbol="music.note.list"
@@ -435,6 +470,7 @@ export function FavoritesScreen() {
     <>
       <Stack.Title>Favorites</Stack.Title>
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
+        <BrandBackdrop />
         {albumIds.length === 0 && songIds.length === 0 ? (
           <EmptyState
             symbol="heart"
@@ -531,6 +567,33 @@ const styles = StyleSheet.create({
     gap: layout.gridGap,
     rowGap: space.xl,
     paddingHorizontal: space.screen,
+  },
+  artistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.lg,
+    height: ARTIST_ROW,
+    paddingHorizontal: space.screen,
+  },
+  artistAvatar: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    padding: 1,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    borderColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  artistName: { fontSize: 20, fontWeight: '600', letterSpacing: -0.4, color: colors.label },
+  artistSub: { ...type.body, color: colors.secondaryLabel, marginTop: 3 },
+  artistSeparator: {
+    position: 'absolute',
+    left: space.screen,
+    right: space.screen,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.separator,
   },
   listRow: {
     flexDirection: 'row',

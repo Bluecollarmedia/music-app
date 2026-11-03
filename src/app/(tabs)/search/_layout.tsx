@@ -9,6 +9,7 @@ export default function TabStackLayout() {
         headerLargeTitleEnabled: true,
         headerTransparent: true,
         headerTintColor: colors.accent as string,
+        headerLargeTitleStyle: { color: colors.label as unknown as string },
         headerBackButtonDisplayMode: 'minimal',
       }}
     />
