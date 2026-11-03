@@ -7,7 +7,7 @@ import { Artwork } from '@/components/Artwork';
 import { Touchable } from '@/components/Touchable';
 import { useTrackArtwork } from '@/hooks/useArtwork';
 import { useHrefs } from '@/hooks/useTab';
-import { addToQueue, confirmDeleteTracks, playNext, toggleFavoriteTrack } from '@/library/actions';
+import { addToQueue, confirmDeleteTracks, playNext, shareTrack, toggleFavoriteTrack } from '@/library/actions';
 import { formatTime } from '@/lib/format';
 import { artistIdFor, useLibrary } from '@/stores/library';
 import { usePlayer } from '@/stores/player';
@@ -133,6 +133,7 @@ export const TrackRow = memo(function TrackRow({
             icon="info.circle"
             onPress={() => router.push({ pathname: '/edit-info', params: { id: trackId } })}
           />
+          <Link.MenuAction title="Share Song…" icon="square.and.arrow.up" onPress={() => shareTrack(trackId)} />
         </Link.Menu>
         {onRemove ? (
           <Link.MenuAction title={onRemove.title} icon="minus.circle" destructive onPress={onRemove.action} />

@@ -56,11 +56,11 @@ export default function RootLayout() {
           <Stack.Screen
             name="now-playing"
             options={{
-              // The mini-player link uses Apple's zoom transition; this is the fallback.
-              animation: 'slide_from_bottom',
+              // A native iOS sheet: UIKit runs the open and the swipe-down-to-close, so both
+              // follow the finger and settle at 120 Hz with no JS in the loop.
+              presentation: 'modal',
               gestureEnabled: true,
-              gestureDirection: 'vertical',
-              fullScreenGestureEnabled: true,
+              contentStyle: { backgroundColor: '#0B0B0D' },
             }}
           />
           <Stack.Screen

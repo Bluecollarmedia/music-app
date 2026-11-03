@@ -25,7 +25,7 @@ import { GlassIconButton } from '@/components/GlassIconButton';
 import { Scrubber } from '@/components/Scrubber';
 import { useTrackArtwork } from '@/hooks/useArtwork';
 import { usePlaybackPosition } from '@/hooks/usePlaybackPosition';
-import { toggleFavoriteTrack } from '@/library/actions';
+import { shareTrack, toggleFavoriteTrack } from '@/library/actions';
 import { resolveUri } from '@/lib/paths';
 import { artistIdFor, useLibrary } from '@/stores/library';
 import { player, usePlayer } from '@/stores/player';
@@ -69,6 +69,7 @@ export default function NowPlayingScreen() {
       'Go to Artist',
       'Change Artwork…',
       'Song Info…',
+      'Share Song…',
       'Cancel',
     ];
     ActionSheetIOS.showActionSheetWithOptions(
@@ -79,6 +80,7 @@ export default function NowPlayingScreen() {
         if (i === 2) goTo(`/library/artist/${artistIdFor(track.artist)}`);
         if (i === 3) router.push({ pathname: '/artwork-editor', params: { kind: 'track', id: track.id } });
         if (i === 4) router.push({ pathname: '/edit-info', params: { id: track.id } });
+        if (i === 5) void shareTrack(track.id);
       },
     );
   };

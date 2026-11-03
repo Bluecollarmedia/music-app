@@ -51,6 +51,20 @@ export type FileMetadata = {
   artworkPath?: string;
 };
 
+/** Song details written into a shared copy of the song file. */
+export type ShareInput = {
+  uri: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist?: string | null;
+  genre?: string | null;
+  year?: number | null;
+  trackNumber?: number | null;
+  discNumber?: number | null;
+  artworkUri?: string | null;
+};
+
 type SonderAudioEvents = {
   onStateChange: (event: PlaybackStateEvent) => void;
   onQueueChange: (event: QueueChangeEvent) => void;
@@ -82,6 +96,7 @@ type SonderAudioNativeModule = {
   setGapless(enabled: boolean): Promise<void>;
   setEqualizer(enabled: boolean, gains: number[]): Promise<void>;
   readMetadata(uri: string, artworkPath: string): Promise<FileMetadata>;
+  exportForSharing(input: ShareInput): Promise<string>;
   addListener<K extends keyof SonderAudioEvents>(event: K, listener: SonderAudioEvents[K]): EventSubscription;
 };
 
@@ -125,6 +140,8 @@ export const SonderAudio = {
   setGapless: (enabled: boolean) => mod().setGapless(enabled),
   setEqualizer: (enabled: boolean, gains: number[]) => mod().setEqualizer(enabled, gains),
   readMetadata: (uri: string, artworkPath: string) => mod().readMetadata(uri, artworkPath),
+  /** Copies a song with its current details and artwork written in; resolves to the copy's file:// URL. */
+  exportForSharing: (input: ShareInput) => mod().exportForSharing(input),
   addListener<K extends keyof SonderAudioEvents>(event: K, listener: SonderAudioEvents[K]): EventSubscription | null {
     return nativeModule ? nativeModule.addListener(event, listener) : null;
   },

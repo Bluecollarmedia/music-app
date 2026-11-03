@@ -14,6 +14,20 @@ struct QueueTrackRecord: Record {
   @Field var duration: Double = 0
 }
 
+/// The song details JS sends when the user shares a song.
+struct ShareRecord: Record {
+  @Field var uri: String = ""
+  @Field var title: String = ""
+  @Field var artist: String = ""
+  @Field var album: String = ""
+  @Field var albumArtist: String? = nil
+  @Field var genre: String? = nil
+  @Field var year: Int? = nil
+  @Field var trackNumber: Int? = nil
+  @Field var discNumber: Int? = nil
+  @Field var artworkUri: String? = nil
+}
+
 public class SonderAudioModule: Module {
   private lazy var engine: PlaybackEngine = {
     let engine = PlaybackEngine()
@@ -136,6 +150,25 @@ public class SonderAudioModule: Module {
       guard let url = MetadataReader.fileURL(from: uri) else { return [:] }
       let artworkURL = MetadataReader.fileURL(from: artworkPath)
       return await MetadataReader.read(url: url, artworkURL: artworkURL)
+    }
+
+    // MARK: Sharing
+
+    AsyncFunction("exportForSharing") { (record: ShareRecord) async throws -> String in
+      guard let source = MetadataReader.fileURL(from: record.uri) else { throw SongExportError.unreadable }
+      let tags = ShareTags(
+        title: record.title,
+        artist: record.artist,
+        album: record.album,
+        albumArtist: record.albumArtist,
+        genre: record.genre,
+        year: record.year,
+        trackNumber: record.trackNumber,
+        discNumber: record.discNumber,
+        artworkURL: record.artworkUri.flatMap { MetadataReader.fileURL(from: $0) }
+      )
+      let url = try await SongExporter.export(source: source, tags: tags)
+      return url.absoluteString
     }
 
     // MARK: AirPlay / output picker
