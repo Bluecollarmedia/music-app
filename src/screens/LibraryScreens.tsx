@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { AlbumTile } from '@/components/AlbumTile';
 import { Artwork } from '@/components/Artwork';
+import { Touchable } from '@/components/Touchable';
 import { EmptyState } from '@/components/EmptyState';
 import { ImportBanner } from '@/components/ImportBanner';
 import { LibraryToolbar, runImportFromFiles } from '@/components/LibraryToolbar';
@@ -78,22 +79,31 @@ export function LibraryScreen() {
           />
         ) : (
           <>
-            <View style={styles.categoryList}>
-              {categories.map((c, i) => (
-                <Link key={c.title} href={c.route as never} asChild>
-                  <Pressable
-                    style={({ pressed }) => [styles.categoryRow, pressed && { backgroundColor: colors.fill }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${c.title}, ${c.count}`}
-                  >
-                    <SymbolView name={c.symbol} size={20} tintColor={colors.accent} style={styles.categoryIcon} />
-                    <Text style={styles.categoryTitle}>{c.title}</Text>
-                    <Text style={styles.categoryCount}>{c.count.toLocaleString()}</Text>
-                    <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
-                    {i < categories.length - 1 ? <View style={styles.separator} /> : null}
-                  </Pressable>
-                </Link>
-              ))}
+            <View style={styles.categoryGrid}>
+              {categories.map((c, i) => {
+                // Two cards per row; an odd last card spans the full width.
+                const full = i === categories.length - 1 && categories.length % 2 === 1;
+                return (
+                  <Link key={c.title} href={c.route as never} asChild>
+                    <Touchable
+                      style={[styles.categoryCard, { width: full ? width - space.screen * 2 : tileWidth }]}
+                      pressedStyle={styles.categoryCardPressed}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${c.title}, ${c.count}`}
+                    >
+                      <View style={styles.categoryTop}>
+                        <View style={styles.categoryIcon}>
+                          <SymbolView name={c.symbol} size={18} weight="semibold" tintColor={colors.accent} />
+                        </View>
+                        <Text style={styles.categoryCount}>{c.count.toLocaleString()}</Text>
+                      </View>
+                      <Text style={styles.categoryTitle} numberOfLines={1}>
+                        {c.title}
+                      </Text>
+                    </Touchable>
+                  </Link>
+                );
+              })}
             </View>
             {recent.length > 0 ? (
               <>
@@ -179,8 +189,9 @@ function AlbumListRow({ albumId }: { albumId: string }) {
   if (!album) return null;
   return (
     <Link href={hrefs.album(albumId)} asChild>
-      <Pressable
-        style={({ pressed }) => [styles.listRow, pressed && { backgroundColor: colors.fill }]}
+      <Touchable
+        style={[styles.listRow]}
+        pressedStyle={{ backgroundColor: colors.fill }}
         accessibilityLabel={`${album.title}, ${album.artist}`}
       >
         <Artwork path={artwork} size={56} />
@@ -193,7 +204,7 @@ function AlbumListRow({ albumId }: { albumId: string }) {
             {album.year ? ` · ${album.year}` : ''}
           </Text>
         </View>
-      </Pressable>
+      </Touchable>
     </Link>
   );
 }
@@ -228,8 +239,9 @@ function ArtistRow({ artistId }: { artistId: string }) {
   if (!artist) return null;
   return (
     <Link href={hrefs.artist(artistId)} asChild>
-      <Pressable
-        style={({ pressed }) => [styles.listRow, { height: 68 }, pressed && { backgroundColor: colors.fill }]}
+      <Touchable
+        style={[styles.listRow, { height: 68 }]}
+        pressedStyle={{ backgroundColor: colors.fill }}
         accessibilityLabel={artist.name}
       >
         <Artwork path={cover} size={48} radius={24} />
@@ -243,7 +255,7 @@ function ArtistRow({ artistId }: { artistId: string }) {
           </Text>
         </View>
         <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
-      </Pressable>
+      </Touchable>
     </Link>
   );
 }
@@ -394,8 +406,9 @@ function PlaylistRow({ playlistId }: { playlistId: string }) {
   if (!playlist) return null;
   return (
     <Link href={hrefs.playlist(playlistId)} asChild>
-      <Pressable
-        style={({ pressed }) => [styles.listRow, pressed && { backgroundColor: colors.fill }]}
+      <Touchable
+        style={[styles.listRow]}
+        pressedStyle={{ backgroundColor: colors.fill }}
         accessibilityLabel={playlist.name}
       >
         <PlaylistArtwork playlistId={playlistId} size={56} />
@@ -406,7 +419,7 @@ function PlaylistRow({ playlistId }: { playlistId: string }) {
           <Text style={styles.rowSub}>{pluralize(playlist.trackIds.length, 'song')}</Text>
         </View>
         <SymbolView name="chevron.right" size={13} weight="semibold" tintColor={colors.tertiaryLabel} />
-      </Pressable>
+      </Touchable>
     </Link>
   );
 }
@@ -484,25 +497,34 @@ export function PlayShuffleBar({ onPlay, onShuffle }: { onPlay: () => void; onSh
 }
 
 const styles = StyleSheet.create({
-  categoryList: { marginTop: space.sm },
-  categoryRow: {
+  categoryGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    height: 52,
+    flexWrap: 'wrap',
+    gap: layout.gridGap,
     paddingHorizontal: space.screen,
-    gap: space.md,
+    marginTop: space.sm,
+    marginBottom: space.lg,
   },
-  categoryIcon: { width: 28, height: 22 },
-  categoryTitle: { ...type.body, color: colors.label, flex: 1 },
-  categoryCount: { ...type.body, ...type.monoDigits, color: colors.secondaryLabel },
-  separator: {
-    position: 'absolute',
-    left: space.screen + 40,
-    right: 0,
-    bottom: 0,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.separator,
+  categoryCard: {
+    height: 104,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    padding: space.lg,
+    justifyContent: 'space-between',
+    backgroundColor: colors.secondaryGroupedBackground,
   },
+  categoryCardPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
+  categoryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  categoryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.fill,
+  },
+  categoryTitle: { ...type.headline, color: colors.label },
+  categoryCount: { ...type.title2, ...type.monoDigits, fontWeight: '700', color: colors.label },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -47,9 +47,7 @@ export function MiniPlayer() {
           accessibilityLabel={track ? `Now playing: ${title} by ${subtitle}` : 'Nothing playing'}
           accessibilityHint="Opens Now Playing"
         >
-          <Link.AppleZoom>
-            <Artwork path={artwork} size={inline ? 28 : 36} radius={inline ? 6 : 8} transitionMs={250} />
-          </Link.AppleZoom>
+          <Artwork path={artwork} size={inline ? 28 : 36} radius={inline ? 6 : 8} transitionMs={250} />
           <View style={styles.text}>
             <Text style={[styles.title, inline && styles.titleInline]} numberOfLines={1}>
               {title}

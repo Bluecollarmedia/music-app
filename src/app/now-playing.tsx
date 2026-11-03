@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { useEffect } from 'react';
 import {
@@ -115,8 +115,7 @@ export default function NowPlayingScreen() {
         </View>
 
         <View style={styles.artArea}>
-          <Link.AppleZoomTarget>
-            <Animated.View style={[styles.artShadow, artStyle]}>
+          <Animated.View style={[styles.artShadow, artStyle]}>
               <Artwork
                 path={artwork}
                 size={artSize}
@@ -126,7 +125,6 @@ export default function NowPlayingScreen() {
                 accessibilityLabel={track ? `Artwork for ${track.album}` : 'No artwork'}
               />
             </Animated.View>
-          </Link.AppleZoomTarget>
         </View>
 
         <View style={styles.infoRow}>

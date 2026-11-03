@@ -1,9 +1,10 @@
 import { Link, router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Artwork } from '@/components/Artwork';
+import { Touchable } from '@/components/Touchable';
 import { useTrackArtwork } from '@/hooks/useArtwork';
 import { useHrefs } from '@/hooks/useTab';
 import { addToQueue, confirmDeleteTracks, playNext, toggleFavoriteTrack } from '@/library/actions';
@@ -57,8 +58,9 @@ export const TrackRow = memo(function TrackRow({
       }}
     >
       <Link.Trigger>
-        <Pressable
-          style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+        <Touchable
+          style={[styles.row]}
+          pressedStyle={styles.pressed}
           accessibilityRole="button"
           accessibilityLabel={a11y}
           accessibilityHint="Plays this song. Touch and hold for more options."
@@ -97,7 +99,7 @@ export const TrackRow = memo(function TrackRow({
           {variant === 'number' ? (
             <Text style={styles.duration}>{formatTime(track.duration)}</Text>
           ) : null}
-        </Pressable>
+        </Touchable>
       </Link.Trigger>
       <Link.Menu>
         <Link.MenuAction title="Play Next" icon="text.insert" onPress={() => playNext([trackId])} />

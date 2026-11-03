@@ -362,10 +362,11 @@ final class PlaybackEngine: NSObject {
       emitQueue()
       load(index: 0, at: 0, autoplay: isPlaying)
     } else {
-      // End of the queue: go back to the first song, paused.
+      // End of the queue: start again from the first song and keep the play state,
+      // so pressing skip never silently pauses the music.
       index = 0
       emitQueue()
-      load(index: 0, at: 0, autoplay: false)
+      load(index: 0, at: 0, autoplay: isPlaying)
     }
   }
 
@@ -834,7 +835,8 @@ final class PlaybackEngine: NSObject {
     let entryKey = entry.key
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
       guard let image = UIImage(contentsOfFile: url.path) else { return }
-      let artwork = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+      // The system calls this handler on a background queue, so it must not be tied to the main thread.
+      let artwork = MPMediaItemArtwork(boundsSize: image.size) { @Sendable _ in image }
       DispatchQueue.main.async {
         guard let self, self.currentEntry?.key == entryKey else { return }
         self.artworkCache = artwork

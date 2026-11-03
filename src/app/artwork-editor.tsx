@@ -33,7 +33,7 @@ import {
   type PickedImage,
 } from '@/library/artwork';
 import { haptics } from '@/lib/haptics';
-import { useLibrary } from '@/stores/library';
+import { getLibrary, useLibrary } from '@/stores/library';
 import { colors, radius, space, springs, type } from '@/theme';
 
 const MAX_ZOOM = 6;
@@ -45,7 +45,16 @@ const MAX_ZOOM = 6;
  */
 export default function ArtworkEditorScreen() {
   const params = useLocalSearchParams<{ kind: 'album' | 'track'; id: string }>();
-  const [target, setTarget] = useState<ArtworkTarget>({ kind: params.kind === 'track' ? 'track' : 'album', id: params.id });
+  // Opening from a song still edits the whole album by default, so the new cover shows
+  // everywhere (album page, library, songs). "This Song" stays one tap away.
+  const [target, setTarget] = useState<ArtworkTarget>(() => {
+    if (params.kind === 'track') {
+      const albumId = getLibrary().tracks[params.id]?.albumId;
+      if (albumId && getLibrary().albums[albumId]) return { kind: 'album', id: albumId };
+      return { kind: 'track', id: params.id };
+    }
+    return { kind: 'album', id: params.id };
+  });
   const [picked, setPicked] = useState<PickedImage | null>(null);
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();

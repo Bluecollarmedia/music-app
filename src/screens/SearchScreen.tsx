@@ -1,9 +1,10 @@
 import { Link, Stack } from 'expo-router';
 import { useDeferredValue, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { AlbumTile } from '@/components/AlbumTile';
 import { Artwork } from '@/components/Artwork';
+import { Touchable } from '@/components/Touchable';
 import { EmptyState } from '@/components/EmptyState';
 import { PlaylistArtwork } from '@/components/PlaylistArtwork';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -120,7 +121,7 @@ export function SearchScreen() {
                 <SectionHeader title="Playlists" />
                 {results.playlists.map((id) => (
                   <Link key={id} href={`/search/playlist/${id}`} asChild>
-                    <Pressable style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.fill }]}>
+                    <Touchable style={[styles.row]} pressedStyle={{ backgroundColor: colors.fill }}>
                       <PlaylistArtwork playlistId={id} size={48} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.title} numberOfLines={1}>
@@ -128,7 +129,7 @@ export function SearchScreen() {
                         </Text>
                         <Text style={styles.sub}>{pluralize(playlists[id].trackIds.length, 'song')}</Text>
                       </View>
-                    </Pressable>
+                    </Touchable>
                   </Link>
                 ))}
               </>
@@ -157,7 +158,7 @@ function ArtistResult({ id }: { id: string }) {
   if (!artist) return null;
   return (
     <Link href={`/search/artist/${id}`} asChild>
-      <Pressable style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.fill }]}>
+      <Touchable style={[styles.row]} pressedStyle={{ backgroundColor: colors.fill }}>
         <Artwork path={cover} size={48} radius={24} />
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>
@@ -165,7 +166,7 @@ function ArtistResult({ id }: { id: string }) {
           </Text>
           <Text style={styles.sub}>Artist</Text>
         </View>
-      </Pressable>
+      </Touchable>
     </Link>
   );
 }

@@ -1,8 +1,9 @@
 import { Link, router } from 'expo-router';
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { Artwork } from '@/components/Artwork';
+import { Touchable } from '@/components/Touchable';
 import { useAlbumArtwork } from '@/hooks/useArtwork';
 import { useHrefs } from '@/hooks/useTab';
 import { addToQueue, playNext, toggleFavoriteAlbum } from '@/library/actions';
@@ -29,8 +30,9 @@ export const AlbumTile = memo(function AlbumTile({ albumId, width, caption = 'ar
   return (
     <Link href={hrefs.album(albumId)} asChild>
       <Link.Trigger>
-        <Pressable
-          style={({ pressed }) => [{ width }, pressed && { opacity: 0.75 }]}
+        <Touchable
+          style={[{ width }]}
+          pressedStyle={{ opacity: 0.75 }}
           accessibilityRole="button"
           accessibilityLabel={`${album.title}, ${album.artist}`}
         >
@@ -41,7 +43,7 @@ export const AlbumTile = memo(function AlbumTile({ albumId, width, caption = 'ar
           <Text style={styles.caption} numberOfLines={1}>
             {second}
           </Text>
-        </Pressable>
+        </Touchable>
       </Link.Trigger>
       <Link.Preview />
       <Link.Menu>
