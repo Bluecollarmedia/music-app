@@ -33,39 +33,20 @@ import { colors, layout, radius, space, type } from '@/theme';
 
 // MARK: Library home
 
-type Category = { title: string; symbol: SFSymbol; route: string; count: number };
+type Category = { title: string; symbol: SFSymbol; route: string };
+
+/** Library landing page: five simple rows, one per section. */
+const CATEGORIES: Category[] = [
+  { title: 'Songs', symbol: 'music.note', route: '/library/songs' },
+  { title: 'Albums', symbol: 'opticaldisc.fill', route: '/library/albums' },
+  { title: 'Artists', symbol: 'person.fill', route: '/library/artists' },
+  { title: 'Playlists', symbol: 'music.note.list', route: '/library/playlists' },
+  { title: 'Favorites', symbol: 'heart', route: '/library/favorites' },
+];
 
 export function LibraryScreen() {
-  const counts = useLibrary(
-    useShallow((s) => ({
-      playlists: s.playlistOrder.length,
-      albums: s.albumOrder.length,
-      artists: s.artistOrder.length,
-      songs: s.songOrder.length,
-      favorites: s.songOrder.filter((id) => s.tracks[id]?.favorite).length,
-      played: Object.values(s.albums).filter((a) => a.lastPlayed).length,
-    })),
-  );
   const ready = useLibrary((s) => s.ready);
-  const recent = useLibrary(
-    useShallow((s) =>
-      Object.values(s.albums)
-        .sort((a, b) => b.dateAdded - a.dateAdded)
-        .slice(0, 6)
-        .map((a) => a.id),
-    ),
-  );
-  const { width } = useWindowDimensions();
-  const tileWidth = (width - space.screen * 2 - layout.gridGap) / 2;
-
-  const categories: Category[] = [
-    { title: 'Playlists', symbol: 'music.note.list', route: '/library/playlists', count: counts.playlists },
-    { title: 'Albums', symbol: 'square.stack', route: '/library/albums', count: counts.albums },
-    { title: 'Artists', symbol: 'music.mic', route: '/library/artists', count: counts.artists },
-    { title: 'Songs', symbol: 'music.note', route: '/library/songs', count: counts.songs },
-    { title: 'Favorites', symbol: 'heart', route: '/library/favorites', count: counts.favorites },
-    { title: 'Recently Played', symbol: 'clock', route: '/library/played', count: counts.played },
-  ];
+  const empty = useLibrary((s) => s.songOrder.length === 0);
 
   return (
     <>
@@ -74,53 +55,34 @@ export function LibraryScreen() {
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={{ paddingBottom: 140 }}>
         <BrandBackdrop />
         <ImportBanner />
-        {ready && counts.songs === 0 ? (
+        <View style={styles.categoryList}>
+          {CATEGORIES.map((c) => (
+            <Link key={c.title} href={c.route as never} asChild>
+              <Touchable
+                style={styles.categoryRow}
+                pressedStyle={styles.categoryRowPressed}
+                accessibilityRole="button"
+                accessibilityLabel={c.title}
+              >
+                <View style={styles.categoryIcon}>
+                  <SymbolView name={c.symbol} size={24} weight="semibold" tintColor={colors.accent} />
+                </View>
+                <Text style={styles.categoryTitle} numberOfLines={1}>
+                  {c.title}
+                </Text>
+                <SymbolView name="chevron.right" size={16} weight="semibold" tintColor={colors.secondaryLabel} />
+              </Touchable>
+            </Link>
+          ))}
+        </View>
+        {ready && empty ? (
           <EmptyState
             symbol="square.stack"
             title="No music yet"
             message="Tap + to import songs from Files, or copy them into “On My iPhone › Davesic” and scan."
             action={{ label: 'Import Music', onPress: runImportFromFiles }}
           />
-        ) : (
-          <>
-            <View style={styles.categoryGrid}>
-              {categories.map((c, i) => {
-                // Two cards per row; an odd last card spans the full width.
-                const full = i === categories.length - 1 && categories.length % 2 === 1;
-                return (
-                  <Link key={c.title} href={c.route as never} asChild>
-                    <Touchable
-                      style={[styles.categoryCard, { width: full ? width - space.screen * 2 : tileWidth }]}
-                      pressedStyle={styles.categoryCardPressed}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${c.title}, ${c.count}`}
-                    >
-                      <View style={styles.categoryTop}>
-                        <View style={styles.categoryIcon}>
-                          <SymbolView name={c.symbol} size={18} weight="semibold" tintColor={colors.accent} />
-                        </View>
-                        <Text style={styles.categoryCount}>{c.count.toLocaleString()}</Text>
-                      </View>
-                      <Text style={styles.categoryTitle} numberOfLines={1}>
-                        {c.title}
-                      </Text>
-                    </Touchable>
-                  </Link>
-                );
-              })}
-            </View>
-            {recent.length > 0 ? (
-              <>
-                <SectionHeader title="Recently Added" href="/library/recent" />
-                <View style={styles.grid}>
-                  {recent.map((id) => (
-                    <AlbumTile key={id} albumId={id} width={tileWidth} />
-                  ))}
-                </View>
-              </>
-            ) : null}
-          </>
-        )}
+        ) : null}
       </ScrollView>
     </>
   );
@@ -557,34 +519,25 @@ export function PlayShuffleBar({ onPlay, onShuffle }: { onPlay: () => void; onSh
 }
 
 const styles = StyleSheet.create({
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: layout.gridGap,
+  categoryList: {
+    gap: 10,
     paddingHorizontal: space.screen,
     marginTop: space.sm,
     marginBottom: space.lg,
   },
-  categoryCard: {
-    height: 104,
-    borderRadius: 20,
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 64,
+    paddingHorizontal: space.lg,
+    gap: space.lg,
+    borderRadius: 18,
     borderCurve: 'continuous',
-    padding: space.lg,
-    justifyContent: 'space-between',
     backgroundColor: colors.secondaryGroupedBackground,
   },
-  categoryCardPressed: { opacity: 0.7, transform: [{ scale: 0.98 }] },
-  categoryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  categoryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.fill,
-  },
-  categoryTitle: { ...type.headline, color: colors.label },
-  categoryCount: { ...type.title2, ...type.monoDigits, fontWeight: '700', color: colors.label },
+  categoryRowPressed: { opacity: 0.7, transform: [{ scale: 0.985 }] },
+  categoryIcon: { width: 30, alignItems: 'center', justifyContent: 'center' },
+  categoryTitle: { fontSize: 19, fontWeight: '600', letterSpacing: -0.3, color: colors.label, flex: 1 },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
