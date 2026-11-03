@@ -60,6 +60,12 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "owner": "abbacohen",
+    "extra": {
+      "eas": {
+        "projectId": "1b829769-10f7-43e7-9706-e63bc05a1223"
+      }
     }
   }
 }
