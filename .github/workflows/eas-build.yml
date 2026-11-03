@@ -1,0 +1,68 @@
+name: EAS iOS build
+
+# Builds SONDER on Expo's servers and sends it to TestFlight.
+# Run it from the Actions tab, or add the "eas-build" label to a pull request.
+# The "eas-submit" label only sends the latest finished build to TestFlight.
+# Needs the EXPO_TOKEN repo secret. The Apple credentials are set up once
+# (see README, "First build"), after which this runs without any prompts.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        default: production
+        type: choice
+        options: [production, preview, development]
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: eas-build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'eas-build' || github.event.label.name == 'eas-submit'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Check for EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Add an EXPO_TOKEN secret (expo.dev > Account settings > Access tokens) under repo Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Link the EAS project
+        run: eas init --non-interactive --force
+
+      - name: Send the latest build to TestFlight
+        if: github.event.label.name == 'eas-submit'
+        run: eas submit --platform ios --latest --non-interactive --wait
+
+      - name: Build (and submit to TestFlight for production)
+        if: github.event.label.name != 'eas-submit'
+        env:
+          PROFILE: ${{ inputs.profile || 'production' }}
+        run: |
+          if [ "$PROFILE" = "production" ]; then
+            eas build --platform ios --profile production --non-interactive --auto-submit --wait
+          else
+            eas build --platform ios --profile "$PROFILE" --non-interactive --wait
+          fi
