@@ -43,6 +43,7 @@ export function LibraryScreen() {
       artists: s.artistOrder.length,
       songs: s.songOrder.length,
       favorites: s.songOrder.filter((id) => s.tracks[id]?.favorite).length,
+      played: Object.values(s.albums).filter((a) => a.lastPlayed).length,
     })),
   );
   const ready = useLibrary((s) => s.ready);
@@ -63,6 +64,7 @@ export function LibraryScreen() {
     { title: 'Artists', symbol: 'music.mic', route: '/library/artists', count: counts.artists },
     { title: 'Songs', symbol: 'music.note', route: '/library/songs', count: counts.songs },
     { title: 'Favorites', symbol: 'heart', route: '/library/favorites', count: counts.favorites },
+    { title: 'Recently Played', symbol: 'clock', route: '/library/played', count: counts.played },
   ];
 
   return (
@@ -126,7 +128,7 @@ export function LibraryScreen() {
 
 // MARK: Albums
 
-export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
+export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' | 'played' }) {
   const layoutPref = useSettings((s) => s.albumsLayout);
   const update = useSettings((s) => s.update);
   const albumOrder = useLibrary((s) => s.albumOrder);
@@ -138,7 +140,11 @@ export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
     () =>
       mode === 'recent'
         ? [...albumOrder].sort((a, b) => (albums[b]?.dateAdded ?? 0) - (albums[a]?.dateAdded ?? 0))
-        : albumOrder,
+        : mode === 'played'
+          ? albumOrder
+              .filter((id) => albums[id]?.lastPlayed)
+              .sort((a, b) => (albums[b]?.lastPlayed ?? 0) - (albums[a]?.lastPlayed ?? 0))
+          : albumOrder,
     [mode, albumOrder, albums],
   );
 
@@ -146,7 +152,7 @@ export function AlbumsScreen({ mode = 'all' }: { mode?: 'all' | 'recent' }) {
 
   return (
     <>
-      <Stack.Title>{mode === 'recent' ? 'Recently Added' : 'Albums'}</Stack.Title>
+      <Stack.Title>{mode === 'recent' ? 'Recently Added' : mode === 'played' ? 'Recently Played' : 'Albums'}</Stack.Title>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
           icon={grid ? 'list.bullet' : 'square.grid.2x2'}
@@ -301,7 +307,12 @@ const SORT_LABELS: Record<SongSort, string> = {
   playCount: 'Most Played',
 };
 
-export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean }) {
+/**
+ * All songs in a Spotify-style list. `home` is the Listen tab's main screen: large "Songs"
+ * title with import and settings in the toolbar.
+ */
+export function SongsScreen({ favoritesOnly = false, home = false }: { favoritesOnly?: boolean; home?: boolean }) {
+  const ready = useLibrary((s) => s.ready);
   const songOrder = useLibrary((s) => s.songOrder);
   const tracks = useLibrary((s) => s.tracks);
   const sort = useSettings((s) => s.songSort);
@@ -335,9 +346,10 @@ export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean
 
   return (
     <>
-      <Stack.Title>{favoritesOnly ? 'Favorite Songs' : 'Songs'}</Stack.Title>
+      <Stack.Title large={home}>{favoritesOnly ? 'Favorite Songs' : 'Songs'}</Stack.Title>
       <Stack.SearchBar placeholder="Find in Songs" onChangeText={(e) => setQuery(e.nativeEvent.text)} hideWhenScrolling />
-      <Stack.Toolbar placement="right">
+      {home ? <LibraryToolbar /> : null}
+      <Stack.Toolbar placement={home ? 'left' : 'right'}>
         <Stack.Toolbar.Menu icon="arrow.up.arrow.down" accessibilityLabel="Sort">
           {(Object.keys(SORT_LABELS) as SongSort[]).map((key) => (
             <Stack.Toolbar.MenuAction key={key} isOn={sort === key} onPress={() => update({ songSort: key })}>
@@ -355,6 +367,7 @@ export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean
         ListHeaderComponent={
           <>
             <BrandBackdrop />
+            {home ? <ImportBanner /> : null}
             {ids.length > 0 ? (
               <PlayShuffleBar
                 onPlay={() => player.playTracks(ids, 0, { shuffle: false })}
@@ -364,13 +377,19 @@ export function SongsScreen({ favoritesOnly = false }: { favoritesOnly?: boolean
           </>
         }
         renderItem={({ item, index }) => (
-          <TrackRow trackId={item} onPress={() => player.playTracks(ids, index, { shuffle: false })} />
+          <TrackRow trackId={item} prominent onPress={() => player.playTracks(ids, index, { shuffle: false })} />
         )}
-        getItemLayout={(_, index) => ({ length: layout.rowHeight, offset: layout.rowHeight * index, index })}
         initialNumToRender={14}
         windowSize={9}
         ListEmptyComponent={
-          favoritesOnly ? (
+          home && ready && songOrder.length === 0 ? (
+            <EmptyState
+              symbol="music.note.house"
+              title="Your music lives here"
+              message="Import songs from the Files app to start your Davesic library. Everything stays on your iPhone."
+              action={{ label: 'Import Music', onPress: runImportFromFiles }}
+            />
+          ) : favoritesOnly ? (
             <EmptyState symbol="heart" title="No favorites yet" message="Tap the heart in Now Playing to save songs here." />
           ) : (
             <EmptyState symbol="music.note" title="No songs" message="Imported music appears here." />
