@@ -1,0 +1,55 @@
+# Builds the Dave browz app (github.com/Bluecollarmedia/Desktop-browser) on Expo and
+# sends it to TestFlight. It lives here because this repo already holds the EXPO_TOKEN
+# secret; the Dave browz code is checked out from its own public repo.
+name: Dave browz iOS build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Dave browz branch to build
+        default: claude/project-thread-bvro59
+      submit:
+        description: Also send the build to TestFlight
+        default: true
+        type: boolean
+  push:
+    branches: [claude/project-thread-bvro59]
+    paths: ['.github/workflows/dave-browz-build.yml']
+
+concurrency:
+  group: dave-browz-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: Bluecollarmedia/Desktop-browser
+          ref: ${{ inputs.ref || 'claude/project-thread-bvro59' }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      - name: Link the EAS project
+        run: eas init --non-interactive --force
+
+      - name: Build and submit
+        run: |
+          if [ "${{ inputs.submit == false }}" = "true" ]; then
+            eas build --platform ios --profile production --non-interactive --wait
+          else
+            eas build --platform ios --profile production --non-interactive --auto-submit --wait
+          fi
