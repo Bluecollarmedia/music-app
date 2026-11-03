@@ -15,7 +15,7 @@ on:
         type: boolean
   push:
     branches: [claude/project-thread-bvro59]
-    paths: ['.github/workflows/dave-browz-build.yml']
+    paths: ['dave-browz-build-request.txt']
 
 concurrency:
   group: dave-browz-build
@@ -48,7 +48,7 @@ jobs:
 
       - name: Build and submit
         run: |
-          if [ "${{ inputs.submit == false }}" = "true" ]; then
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.submit == false }}" = "true" ]; then
             eas build --platform ios --profile production --non-interactive --wait
           else
             eas build --platform ios --profile production --non-interactive --auto-submit --wait
