@@ -86,7 +86,7 @@ export default function NowPlayingScreen() {
   return (
     <View style={styles.root}>
       {/* Atmosphere: the same artwork, enlarged and heavily blurred, so its colors fill the screen. */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]} pointerEvents="none">
         {dynamicBackground && uri ? (
           <Image
             source={{ uri }}
@@ -268,7 +268,8 @@ function ToggleButton({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0B0D' },
+  // Clip the enlarged blurred artwork so it never shows outside the player while it slides.
+  root: { flex: 1, backgroundColor: '#0B0B0D', overflow: 'hidden' },
   bgImage: { transform: [{ scale: 1.8 }] },
   content: { flex: 1, paddingHorizontal: space.xxxl - 4 },
   topBar: {
