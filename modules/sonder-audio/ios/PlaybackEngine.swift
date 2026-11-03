@@ -176,6 +176,8 @@ final class PlaybackEngine: NSObject {
 
   private func startEngineIfNeeded() -> Bool {
     configureSessionIfNeeded()
+    // The system can deactivate the session while the app sits paused in the background.
+    try? AVAudioSession.sharedInstance().setActive(true)
     if engine.isRunning { return true }
     do {
       try engine.start()
@@ -184,6 +186,26 @@ final class PlaybackEngine: NSObject {
       emitError(trackId: nil, message: "Could not start audio: \(error.localizedDescription)")
       return false
     }
+  }
+
+  /// Runs AVAudioEngine calls that report failures by raising Objective-C exceptions,
+  /// which would otherwise crash the app. Returns false if one was raised.
+  @discardableResult
+  private func guarded(_ block: () -> Void) -> Bool {
+    var error: NSError?
+    if SonderTryObjC(block, &error) { return true }
+    NSLog("[SonderAudio] Recovered from audio engine exception: \(error?.localizedDescription ?? "unknown")")
+    return false
+  }
+
+  /// Puts the engine back in a clean state after a failure, so the next load starts fresh.
+  private func resetEngine() {
+    guarded {
+      self.engine.stop()
+      self.players[0].stop()
+      self.players[1].stop()
+    }
+    deckFormat = [nil, nil]
   }
 
   // MARK: Queue API
@@ -319,28 +341,18 @@ final class PlaybackEngine: NSObject {
   // MARK: Transport
 
   func play() {
-    guard index >= 0 else { return }
-    if decks[active].file == nil || decks[active].entryKey != currentEntry?.key {
-      load(index: index, at: pausedPosition, autoplay: true)
-      return
-    }
-    guard startEngineIfNeeded() else { return }
-    let player = players[active]
-    if !player.isPlaying {
-      player.play()
-    }
-    isPlaying = true
-    consecutiveErrors = 0
-    startTimer()
-    updateNowPlayingInfo()
-    emitState()
+    guard index >= 0, !isPlaying else { return }
+    // Resuming always reschedules from where we paused. While the app was in the background
+    // the system may have stopped or reset the engine, leaving the player with nothing queued;
+    // starting it then raised an exception and crashed the app.
+    load(index: index, at: pausedPosition, autoplay: true)
   }
 
   func pause() {
     guard isPlaying else { return }
     finishTransitionImmediately()
     pausedPosition = position(of: active)
-    players[active].pause()
+    guarded { self.players[active].pause() }
     isPlaying = false
     stopTimer()
     updateNowPlayingInfo()
@@ -532,15 +544,32 @@ final class PlaybackEngine: NSObject {
     let clamped = max(0, min(seconds, max(0, duration - 0.05)))
     let startFrame = AVAudioFramePosition(clamped * sampleRate)
 
-    guard startEngineIfNeeded() else { return }
-    players[1 - active].stop()
-    players[1 - active].volume = 1
-    players[active].volume = 1
-    schedule(deck: active, file: file, entryKey: entry.key, startFrame: startFrame)
     pausedPosition = clamped
+    let deck = active
+    let start = { () -> Bool in
+      guard self.startEngineIfNeeded() else { return false }
+      return self.guarded {
+        self.players[1 - deck].stop()
+        self.players[1 - deck].volume = 1
+        self.players[deck].volume = 1
+        self.schedule(deck: deck, file: file, entryKey: entry.key, startFrame: startFrame)
+        if autoplay { self.players[deck].play() }
+      }
+    }
+    // If the engine was left in a bad state (e.g. after time in the background), rebuild it once.
+    if !start() {
+      resetEngine()
+      if !start() {
+        isPlaying = false
+        stopTimer()
+        emitError(trackId: entry.track.id, message: "Couldn't start playback. Try again.")
+        updateNowPlayingInfo()
+        emitState()
+        return
+      }
+    }
 
     if autoplay {
-      players[active].play()
       isPlaying = true
       consecutiveErrors = 0
       startTimer()
@@ -671,12 +700,19 @@ final class PlaybackEngine: NSObject {
     let entry = entries[nextIndex]
     guard let file = openFile(for: entry) else { return }
     let deck = 1 - current
-    guard schedule(deck: deck, file: file, entryKey: entry.key, startFrame: 0) else { return }
 
     let startIn = max(0, remainingReal - overlap)
     let startHost = nodeTime.hostTime + AVAudioTime.hostTime(forSeconds: startIn)
-    players[deck].volume = overlap > 0 ? 0 : 1
-    players[deck].play(at: AVAudioTime(hostTime: startHost))
+    var scheduled = false
+    let ok = guarded {
+      scheduled = self.schedule(deck: deck, file: file, entryKey: entry.key, startFrame: 0)
+      if scheduled {
+        self.players[deck].volume = overlap > 0 ? 0 : 1
+        self.players[deck].play(at: AVAudioTime(hostTime: startHost))
+      }
+    }
+    // If arming fails, the song simply ends and the next one loads the normal way.
+    guard ok, scheduled else { return }
     pending = PendingTransition(deck: deck, index: nextIndex, entryKey: entry.key, startHostTime: startHost)
   }
 
