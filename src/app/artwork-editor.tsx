@@ -33,7 +33,7 @@ import {
   type PickedImage,
 } from '@/library/artwork';
 import { haptics } from '@/lib/haptics';
-import { getLibrary, useLibrary } from '@/stores/library';
+import { albumArtworkPath, useLibrary } from '@/stores/library';
 import { colors, radius, space, springs, type } from '@/theme';
 
 const MAX_ZOOM = 6;
@@ -45,16 +45,8 @@ const MAX_ZOOM = 6;
  */
 export default function ArtworkEditorScreen() {
   const params = useLocalSearchParams<{ kind: 'album' | 'track'; id: string }>();
-  // Opening from a song still edits the whole album by default, so the new cover shows
-  // everywhere (album page, library, songs). "This Song" stays one tap away.
-  const [target, setTarget] = useState<ArtworkTarget>(() => {
-    if (params.kind === 'track') {
-      const albumId = getLibrary().tracks[params.id]?.albumId;
-      if (albumId && getLibrary().albums[albumId]) return { kind: 'album', id: albumId };
-      return { kind: 'track', id: params.id };
-    }
-    return { kind: 'album', id: params.id };
-  });
+  // Song artwork and album covers are separate: opening from a song edits that song only.
+  const [target, setTarget] = useState<ArtworkTarget>(() => ({ kind: params.kind, id: params.id }));
   const [picked, setPicked] = useState<PickedImage | null>(null);
   const [saving, setSaving] = useState(false);
   const insets = useSafeAreaInsets();
@@ -70,9 +62,8 @@ export default function ArtworkEditorScreen() {
   const trackArtwork = useTrackArtwork(track?.id);
   const currentArtwork = target.kind === 'track' ? trackArtwork : albumArtwork;
   const hasCustom = target.kind === 'track' ? !!track?.customArtwork : !!album?.customArtwork;
-  const songOverrides = useLibrary((s) =>
-    album ? album.trackIds.filter((id) => s.tracks[id]?.customArtwork).length : 0,
-  );
+  const albumHasCover = !!albumArtworkPath(album);
+  const albumSongCount = album?.trackIds.length ?? 0;
 
   // Crop state (shared with the gesture worklets).
   const zoom = useSharedValue(1);
@@ -119,7 +110,7 @@ export default function ArtworkEditorScreen() {
       'Restore Original Artwork?',
       target.kind === 'album'
         ? 'The artwork embedded in this album’s files will be shown again.'
-        : 'This song will use its album’s artwork again.',
+        : 'The artwork embedded in this song’s file will be shown again.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -172,11 +163,11 @@ export default function ArtworkEditorScreen() {
                 {subject ?? ''}
               </Text>
               <Text style={styles.scope}>
-                {target.kind === 'album' ? 'Album artwork' : 'Artwork for this song only'}
+                {target.kind === 'album' ? 'Album cover (songs keep their own artwork)' : 'Artwork for this song only'}
               </Text>
             </View>
 
-            {track ? (
+            {track && album ? (
               <View style={styles.segment}>
                 <SegmentButton
                   label="This Song"
@@ -184,7 +175,7 @@ export default function ArtworkEditorScreen() {
                   onPress={() => setTarget({ kind: 'track', id: track.id })}
                 />
                 <SegmentButton
-                  label="Whole Album"
+                  label="Album Cover"
                   active={target.kind === 'album'}
                   onPress={() => album && setTarget({ kind: 'album', id: album.id })}
                 />
@@ -201,23 +192,37 @@ export default function ArtworkEditorScreen() {
                   <ActionRow symbol="arrow.uturn.backward" label="Restore Original Artwork" onPress={restore} />
                 </>
               ) : null}
-              {target.kind === 'album' && songOverrides > 0 ? (
+              {target.kind === 'album' && albumHasCover && albumSongCount > 0 ? (
                 <>
                   <Separator />
                   <ActionRow
                     symbol="square.stack"
-                    label={`Use Album Artwork for All ${songOverrides === 1 ? 'Songs' : `${songOverrides} Songs`}`}
-                    onPress={async () => {
-                      await applyAlbumArtworkToAllSongs(target.id);
-                      haptics.success();
-                    }}
+                    label={albumSongCount === 1 ? 'Use This Cover for the Song' : `Use This Cover for All ${albumSongCount} Songs`}
+                    onPress={() =>
+                      Alert.alert(
+                        'Use Album Cover for Songs?',
+                        'Every song on this album will get this cover as its own song artwork.',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          {
+                            text: 'Apply',
+                            onPress: async () => {
+                              await applyAlbumArtworkToAllSongs(target.id);
+                              haptics.success();
+                            },
+                          },
+                        ],
+                      )
+                    }
                   />
                 </>
               ) : null}
             </View>
             <Text style={styles.footnote}>
-              Custom artwork is saved inside Davesic and shows everywhere, including the Lock Screen. Your music files
-              aren’t changed.
+              {target.kind === 'album'
+                ? 'The album cover shows on the album page and in Albums. It doesn’t change any song’s artwork.'
+                : 'Song artwork shows in song lists, Now Playing and the Lock Screen. It doesn’t change the album cover.'}{' '}
+              Your music files aren’t changed.
             </Text>
           </>
         )}

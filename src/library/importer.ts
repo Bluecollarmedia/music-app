@@ -13,7 +13,7 @@ import {
   extensionOf,
   fileForRelative,
 } from '@/lib/paths';
-import { albumIdFor, getLibrary, UNKNOWN_ALBUM, UNKNOWN_ARTIST } from '@/stores/library';
+import { albumIdFor, getLibrary, UNKNOWN_ARTIST } from '@/stores/library';
 import { isAvailable as nativeAvailable, SonderAudio, type FileMetadata } from 'sonder-audio';
 
 export type ImportSummary = {
@@ -112,7 +112,7 @@ async function runImport(sources: { file: File; name: string; move: boolean }[])
       if (outcome.kind === 'added') {
         summary.added++;
         batchTracks.push(outcome.track);
-        batchAlbums.push(outcome.album);
+        if (outcome.album) batchAlbums.push(outcome.album);
       } else if (outcome.kind === 'duplicate') {
         summary.duplicates++;
       } else {
@@ -134,7 +134,7 @@ async function runImport(sources: { file: File; name: string; move: boolean }[])
 }
 
 type Outcome =
-  | { kind: 'added'; track: TrackRow; album: AlbumRow }
+  | { kind: 'added'; track: TrackRow; album: AlbumRow | null }
   | { kind: 'duplicate' }
   | { kind: 'failed'; reason: string };
 
@@ -186,8 +186,9 @@ async function importOne(
   const guessed = guessFromFilename(source.name);
   const artist = meta.artist || guessed.artist || UNKNOWN_ARTIST;
   const albumArtist = meta.albumArtist || null;
-  const album = meta.album || UNKNOWN_ALBUM;
-  const albumId = albumIdFor(albumArtist || artist, album);
+  // Albums are optional: a song without album info stays a standalone song.
+  const album = meta.album?.trim() || '';
+  const albumId = album ? albumIdFor(albumArtist || artist, album) : '';
   const now = Date.now();
 
   const track: TrackRow = {
@@ -213,7 +214,7 @@ async function importOne(
     favorite: 0,
     missing: 0,
   };
-  const albumRow: AlbumRow = {
+  const albumRow: AlbumRow | null = albumId ? {
     id: albumId,
     title: album,
     artist: albumArtist || artist,
@@ -222,9 +223,9 @@ async function importOne(
     favorite: 0,
     lastPlayed: null,
     dateAdded: now,
-  };
+  } : null;
 
-  await DB.ensureAlbum(albumRow);
+  if (albumRow) await DB.ensureAlbum(albumRow);
   await DB.insertTrack(track);
   if (hash) knownHashes.add(hash);
   return { kind: 'added', track, album: albumRow };

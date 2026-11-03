@@ -39,7 +39,8 @@ export type Playlist = {
 };
 
 export const UNKNOWN_ARTIST = 'Unknown Artist';
-export const UNKNOWN_ALBUM = 'Unknown Album';
+/** Older builds filed album-less songs under this name. They're migrated to "no album" on launch. */
+const LEGACY_UNKNOWN_ALBUM = 'Unknown Album';
 
 export function albumIdFor(albumArtist: string, album: string): string {
   return stableId(`album|${normalizeName(albumArtist)}|${normalizeName(album)}`);
@@ -62,6 +63,8 @@ type LibraryState = {
   playlistOrder: string[];
   /** Bumped whenever artwork changes so every surface re-resolves its image. */
   artworkVersion: number;
+  /** Old album id → new id, so an open album page follows a rename. */
+  albumRedirects: Record<string, string>;
 
   hydrate(): void;
   addImported(tracks: TrackRow[], albums: AlbumRow[]): void;
@@ -73,6 +76,8 @@ type LibraryState = {
   recordPlaylistPlay(playlistId: string): void;
   setAlbumArtwork(albumId: string, relativePath: string | null): Promise<void>;
   setTrackArtwork(trackId: string, relativePath: string | null): Promise<void>;
+  /** Renames an album and/or changes its album artist. Returns the album's new id. */
+  updateAlbumInfo(albumId: string, info: { title: string; artist: string }): Promise<string>;
   createPlaylist(name: string, trackIds?: string[]): Promise<string>;
   renamePlaylist(id: string, name: string): Promise<void>;
   deletePlaylist(id: string): Promise<void>;
@@ -105,6 +110,8 @@ function derive(r: Raw) {
   const visibleTracks = Object.values(r.tracks).filter((t) => !t.missing);
 
   for (const t of visibleTracks) {
+    // Songs without album info are standalone songs, not part of any album.
+    if (!t.albumId) continue;
     const row = r.albumRows[t.albumId];
     let album = albums[t.albumId];
     if (!album) {
@@ -200,11 +207,19 @@ export const useLibrary = create<LibraryState>((set, get) => {
     artistOrder: [],
     playlistOrder: [],
     artworkVersion: 0,
+    albumRedirects: {},
 
     hydrate() {
       const data = DB.loadAll();
       const tracks: Record<string, Track> = {};
-      for (const t of data.tracks) tracks[t.id] = t;
+      for (const t of data.tracks) {
+        if (t.album === LEGACY_UNKNOWN_ALBUM) {
+          tracks[t.id] = { ...t, album: '', albumId: '' };
+          void DB.updateTrackFields(t.id, { album: '', albumId: '' });
+        } else {
+          tracks[t.id] = t;
+        }
+      }
       const albumRows: Record<string, AlbumRow> = {};
       for (const a of data.albums) albumRows[a.id] = a;
       const playlists: Record<string, Playlist> = {};
@@ -246,10 +261,11 @@ export const useLibrary = create<LibraryState>((set, get) => {
       const next: Track = { ...t, ...info };
       next.title = next.title.trim() || t.title;
       next.artist = next.artist.trim() || UNKNOWN_ARTIST;
-      next.album = next.album.trim() || UNKNOWN_ALBUM;
+      // Clearing the album makes this a standalone song; typing one joins (or creates) that album.
+      next.album = next.album.trim();
       const albumArtist = next.albumArtist?.trim() || next.artist;
-      next.albumId = albumIdFor(albumArtist, next.album);
-      if (!raw.albumRows[next.albumId]) {
+      next.albumId = next.album ? albumIdFor(albumArtist, next.album) : '';
+      if (next.albumId && !raw.albumRows[next.albumId]) {
         const row: AlbumRow = {
           id: next.albumId,
           title: next.album,
@@ -344,6 +360,53 @@ export const useLibrary = create<LibraryState>((set, get) => {
       rebuild({ artworkVersion: get().artworkVersion + 1 });
     },
 
+    async updateAlbumInfo(albumId, info) {
+      const album = get().albums[albumId];
+      const oldRow = raw.albumRows[albumId];
+      if (!album) return albumId;
+      const title = info.title.trim() || album.title;
+      const artist = info.artist.trim() || album.artist;
+      const newId = albumIdFor(artist, title);
+
+      // The album's own details (cover, favorite, history) move with it to the new id.
+      const row: AlbumRow = {
+        id: newId,
+        title,
+        artist,
+        year: oldRow?.year ?? album.year,
+        customArtwork: oldRow?.customArtwork ?? null,
+        favorite: oldRow?.favorite ?? 0,
+        lastPlayed: oldRow?.lastPlayed ?? null,
+        dateAdded: oldRow?.dateAdded ?? album.dateAdded,
+      };
+      await DB.ensureAlbum(row);
+      await DB.updateAlbumFields(newId, {
+        title,
+        artist,
+        customArtwork: row.customArtwork,
+        favorite: row.favorite,
+        lastPlayed: row.lastPlayed,
+      });
+      const albumRows = { ...raw.albumRows, [newId]: { ...(raw.albumRows[newId] ?? row), ...row } };
+      if (newId !== albumId && oldRow) {
+        albumRows[albumId] = { ...oldRow, customArtwork: null };
+        await DB.updateAlbumFields(albumId, { customArtwork: null });
+      }
+
+      // Only the album fields of each song change; titles, artists and artwork stay as they are.
+      const tracks = { ...raw.tracks };
+      for (const id of album.trackIds) {
+        const t = tracks[id];
+        if (!t) continue;
+        const albumArtist = artist === t.artist ? null : artist;
+        tracks[id] = { ...t, album: title, albumArtist, albumId: newId };
+        await DB.updateTrackFields(id, { album: title, albumArtist, albumId: newId });
+      }
+      raw = { ...raw, tracks, albumRows };
+      rebuild(newId !== albumId ? { albumRedirects: { ...get().albumRedirects, [albumId]: newId } } : undefined);
+      return newId;
+    },
+
     async createPlaylist(name, trackIds = []) {
       const now = Date.now();
       const p: Playlist = {
@@ -419,11 +482,12 @@ export function albumArtworkPath(album: Album | undefined | null): string | null
   return album.customArtwork ?? album.embeddedArtwork;
 }
 
-/** Song cover: song override, then album override, then embedded artwork. */
+/** Song cover: the song's own custom artwork, else the artwork embedded in its file. */
 export function trackArtworkPath(track: Track | undefined | null, albums: Record<string, Album>): string | null {
   if (!track) return null;
-  const album = albums[track.albumId];
-  return track.customArtwork ?? album?.customArtwork ?? track.embeddedArtwork ?? album?.embeddedArtwork ?? null;
+  // Song artwork belongs to the song. An album's cover never replaces it.
+  void albums;
+  return track.customArtwork ?? track.embeddedArtwork ?? null;
 }
 
 export function getLibrary() {

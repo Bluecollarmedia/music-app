@@ -24,7 +24,13 @@ import { PlayShuffleBar } from '@/screens/LibraryScreens';
 // MARK: Album
 
 export function AlbumScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string }>();
+  // Follow the album if it was renamed while this page was open.
+  const id = useLibrary((s) => {
+    let current = params.id;
+    for (let i = 0; i < 5 && !s.albums[current] && s.albumRedirects[current]; i++) current = s.albumRedirects[current];
+    return current;
+  });
   const album = useLibrary((s) => s.albums[id]);
   const artwork = useAlbumArtwork(id);
   const genre = useLibrary((s) => {
@@ -66,10 +72,16 @@ export function AlbumScreen() {
             Add to Playlist…
           </Stack.Toolbar.MenuAction>
           <Stack.Toolbar.MenuAction
+            icon="pencil"
+            onPress={() => router.push({ pathname: '/edit-info', params: { kind: 'album', id } })}
+          >
+            Edit Album…
+          </Stack.Toolbar.MenuAction>
+          <Stack.Toolbar.MenuAction
             icon="photo"
             onPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'album', id } })}
           >
-            Change Artwork…
+            Change Album Cover…
           </Stack.Toolbar.MenuAction>
           {album.customArtwork ? (
             <Stack.Toolbar.MenuAction

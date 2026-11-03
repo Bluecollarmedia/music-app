@@ -90,12 +90,19 @@ export async function restoreOriginalArtwork(target: ArtworkTarget): Promise<voi
   }
 }
 
-/** Applies an album's chosen cover to every song on it by clearing per-song overrides. */
+/**
+ * Only when the user asks for it: gives every song on the album its own copy of the
+ * album's cover. Album covers never change song artwork on their own.
+ */
 export async function applyAlbumArtworkToAllSongs(albumId: string): Promise<void> {
   const lib = getLibrary();
   const album = lib.albums[albumId];
-  if (!album) return;
+  const cover = album?.customArtwork ?? album?.embeddedArtwork;
+  if (!album || !cover) return;
+  ensureDir(CUSTOM_ART_DIR);
   for (const id of album.trackIds) {
-    if (lib.tracks[id]?.customArtwork) await lib.setTrackArtwork(id, null);
+    const relative = `${CUSTOM_ART_DIR}/track-${id}-${Date.now()}.jpg`;
+    new File(fileForRelative(cover)).copy(fileForRelative(relative));
+    await lib.setTrackArtwork(id, relative);
   }
 }

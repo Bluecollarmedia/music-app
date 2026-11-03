@@ -48,7 +48,9 @@ export const TrackRow = memo(function TrackRow({
     prominent || subtitle === 'artist'
       ? track.artist
       : subtitle === 'artistAlbum'
-        ? `${track.artist} · ${track.album}`
+        ? track.album
+          ? `${track.artist} · ${track.album}`
+          : track.artist
         : null;
 
   const a11y = `${track.title}, ${track.artist}${isCurrent ? ', now playing' : ''}`;
@@ -59,7 +61,7 @@ export const TrackRow = memo(function TrackRow({
       { title: 'Add to Queue', run: () => addToQueue([trackId]) },
       { title: 'Add to Playlist…', run: () => router.push({ pathname: '/add-to-playlist', params: { ids: trackId } }) },
       { title: track.favorite ? 'Remove from Favorites' : 'Favorite', run: () => toggleFavoriteTrack(trackId) },
-      { title: 'Go to Album', run: () => router.push(hrefs.album(track.albumId)) },
+      ...(track.albumId ? [{ title: 'Go to Album', run: () => router.push(hrefs.album(track.albumId)) }] : []),
       { title: 'Go to Artist', run: () => router.push(hrefs.artist(artistIdFor(track.artist))) },
       { title: 'Share Song…', run: () => void shareTrack(trackId) },
       {
@@ -85,7 +87,7 @@ export const TrackRow = memo(function TrackRow({
 
   return (
     <Link
-      href={hrefs.album(track.albumId)}
+      href={track.albumId ? hrefs.album(track.albumId) : hrefs.artist(artistIdFor(track.artist))}
       asChild
       onPress={(e) => {
         // Tapping a song plays it; the link is only used for the native context menu.
@@ -162,7 +164,9 @@ export const TrackRow = memo(function TrackRow({
           onPress={() => toggleFavoriteTrack(trackId)}
         />
         <Link.Menu inline title="">
-          <Link.MenuAction title="Go to Album" icon="square.stack" onPress={() => router.push(hrefs.album(track.albumId))} />
+          {track.albumId ? (
+            <Link.MenuAction title="Go to Album" icon="square.stack" onPress={() => router.push(hrefs.album(track.albumId))} />
+          ) : null}
           <Link.MenuAction
             title="Go to Artist"
             icon="music.mic"

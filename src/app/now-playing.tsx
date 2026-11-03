@@ -63,25 +63,21 @@ export default function NowPlayingScreen() {
 
   const showMore = () => {
     if (!track) return;
-    const options = [
-      'Add to Playlist…',
-      'Go to Album',
-      'Go to Artist',
-      'Change Artwork…',
-      'Song Info…',
-      'Share Song…',
-      'Cancel',
+    const actions: { title: string; run: () => void }[] = [
+      { title: 'Add to Playlist…', run: () => router.push({ pathname: '/add-to-playlist', params: { ids: track.id } }) },
+      ...(track.albumId ? [{ title: 'Go to Album', run: () => goTo(`/library/album/${track.albumId}`) }] : []),
+      { title: 'Go to Artist', run: () => goTo(`/library/artist/${artistIdFor(track.artist)}`) },
+      {
+        title: 'Change Artwork…',
+        run: () => router.push({ pathname: '/artwork-editor', params: { kind: 'track', id: track.id } }),
+      },
+      { title: 'Song Info…', run: () => router.push({ pathname: '/edit-info', params: { id: track.id } }) },
+      { title: 'Share Song…', run: () => void shareTrack(track.id) },
     ];
+    const options = [...actions.map((a) => a.title), 'Cancel'];
     ActionSheetIOS.showActionSheetWithOptions(
       { options, cancelButtonIndex: options.length - 1, userInterfaceStyle: 'dark' },
-      (i) => {
-        if (i === 0) router.push({ pathname: '/add-to-playlist', params: { ids: track.id } });
-        if (i === 1) goTo(`/library/album/${track.albumId}`);
-        if (i === 2) goTo(`/library/artist/${artistIdFor(track.artist)}`);
-        if (i === 3) router.push({ pathname: '/artwork-editor', params: { kind: 'track', id: track.id } });
-        if (i === 4) router.push({ pathname: '/edit-info', params: { id: track.id } });
-        if (i === 5) void shareTrack(track.id);
-      },
+      (i) => actions[i]?.run(),
     );
   };
 
@@ -124,7 +120,7 @@ export default function NowPlayingScreen() {
                 radius={radius.lg}
                 transitionMs={reduceMotion ? 0 : 350}
                 priority="high"
-                accessibilityLabel={track ? `Artwork for ${track.album}` : 'No artwork'}
+                accessibilityLabel={track ? `Artwork for ${track.title}` : 'No artwork'}
               />
             </Animated.View>
         </View>

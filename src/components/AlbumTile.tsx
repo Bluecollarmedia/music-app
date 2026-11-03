@@ -63,7 +63,12 @@ export const AlbumTile = memo(function AlbumTile({ albumId, width, caption = 'ar
         />
         <Link.Menu inline title="">
           <Link.MenuAction
-            title="Change Artwork…"
+            title="Edit Album…"
+            icon="pencil"
+            onPress={() => router.push({ pathname: '/edit-info', params: { kind: 'album', id: albumId } })}
+          />
+          <Link.MenuAction
+            title="Change Album Cover…"
             icon="photo"
             onPress={() => router.push({ pathname: '/artwork-editor', params: { kind: 'album', id: albumId } })}
           />
