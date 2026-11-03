@@ -123,7 +123,7 @@ export function SearchScreen() {
                 <SectionHeader title="Playlists" />
                 {results.playlists.map((id) => (
                   <Link key={id} href={`/search/playlist/${id}`} asChild>
-                    <Touchable style={[styles.row]} pressedStyle={{ backgroundColor: colors.fill }}>
+                    <Touchable style={styles.row} pressedStyle={{ backgroundColor: colors.fill }}>
                       <PlaylistArtwork playlistId={id} size={48} />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.title} numberOfLines={1}>
@@ -160,7 +160,7 @@ function ArtistResult({ id }: { id: string }) {
   if (!artist) return null;
   return (
     <Link href={`/search/artist/${id}`} asChild>
-      <Touchable style={[styles.row]} pressedStyle={{ backgroundColor: colors.fill }}>
+      <Touchable style={styles.row} pressedStyle={{ backgroundColor: colors.fill }}>
         <Artwork path={cover} size={48} radius={24} />
         <View style={{ flex: 1 }}>
           <Text style={styles.title} numberOfLines={1}>

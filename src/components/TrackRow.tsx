@@ -97,14 +97,14 @@ export const TrackRow = memo(function TrackRow({
     >
       <Link.Trigger>
         <Touchable
-          style={[styles.row]}
+          style={styles.row}
           pressedStyle={styles.pressed}
           accessibilityRole="button"
           accessibilityLabel={a11y}
           accessibilityHint="Plays this song. Touch and hold for more options."
         >
           {variant === 'artwork' ? (
-            <Artwork path={artwork} size={prominent ? 56 : layout.rowArtwork} radius={prominent ? 6 : undefined} />
+            <Artwork path={artwork} size={prominent ? 48 : layout.rowArtwork} radius={prominent ? 4 : undefined} />
           ) : (
             <View style={styles.number}>
               {isCurrent ? (

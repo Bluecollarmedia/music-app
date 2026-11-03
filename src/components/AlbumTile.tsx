@@ -31,7 +31,7 @@ export const AlbumTile = memo(function AlbumTile({ albumId, width, caption = 'ar
     <Link href={hrefs.album(albumId)} asChild>
       <Link.Trigger>
         <Touchable
-          style={[{ width }]}
+          style={{ width }}
           pressedStyle={{ opacity: 0.75 }}
           accessibilityRole="button"
           accessibilityLabel={`${album.title}, ${album.artist}`}

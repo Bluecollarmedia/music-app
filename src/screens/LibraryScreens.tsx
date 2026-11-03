@@ -162,7 +162,7 @@ function AlbumListRow({ albumId }: { albumId: string }) {
   return (
     <Link href={hrefs.album(albumId)} asChild>
       <Touchable
-        style={[styles.listRow]}
+        style={styles.listRow}
         pressedStyle={{ backgroundColor: colors.fill }}
         accessibilityLabel={`${album.title}, ${album.artist}`}
       >
@@ -423,7 +423,7 @@ function PlaylistRow({ playlistId }: { playlistId: string }) {
   return (
     <Link href={hrefs.playlist(playlistId)} asChild>
       <Touchable
-        style={[styles.listRow]}
+        style={styles.listRow}
         pressedStyle={{ backgroundColor: colors.fill }}
         accessibilityLabel={playlist.name}
       >
